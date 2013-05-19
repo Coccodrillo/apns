@@ -67,34 +67,30 @@ func (this *Envelope) Set(key string, value interface{}) {
 }
 
 // This method looks up a string key and returns the value, or nil.
-func (this *Envelope) Get(key string) (value interface{}) {
+func (this *Envelope) Get(key string) interface{} {
 	if this.CustomProperties == nil {
-		value = nil
-	} else {
-		value = this.CustomProperties[key]
+		return nil
 	}
-	return
+	return this.CustomProperties[key]
 }
 
 // Returns the JSON structure as a byte array.
-func (this *Envelope) ToJSON() (j []byte, err error) {
-	j, err = json.Marshal(this.CustomProperties)
-	return
+func (this *Envelope) ToJSON() ([]byte, error) {
+	return json.Marshal(this.CustomProperties)
 }
 
 // Returns the JSON structure as a string.
-func (this *Envelope) ToString() (s string, err error) {
+func (this *Envelope) ToString() string {
 	j, err := this.ToJSON()
 	if err != nil {
-		return "", err
+		return ""
 	}
-	s = string(j)
-	return
+	return string(j)
 }
 
 // Returns a byte array of the complete Envelope struct. This array
 // is what should be transmitted to the APN Service.
-func (this *Envelope) ToBytes() (b []byte, err error) {
+func (this *Envelope) ToBytes() ([]byte, error) {
 	token, err := hex.DecodeString(this.DeviceToken)
 	if err != nil {
 		return nil, err
@@ -115,7 +111,5 @@ func (this *Envelope) ToBytes() (b []byte, err error) {
 	binary.Write(buffer, binary.BigEndian, token)
 	binary.Write(buffer, binary.BigEndian, uint16(len(payload)))
 	binary.Write(buffer, binary.BigEndian, payload)
-	b = buffer.Bytes()
-
-	return b, nil
+	return buffer.Bytes(), nil
 }
