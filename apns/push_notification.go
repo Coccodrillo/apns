@@ -16,11 +16,7 @@ import (
 	"strconv"
 )
 
-// The first byte of the push notification payload is the command value,
-// which at this time is fixed to 1 by Apple.
 const PUSH_COMMAND_VALUE = 1
-
-// The total length of the payload cannot exceed this amount.
 const MAX_PAYLOAD_SIZE_BYTES = 256
 
 type Payload struct {
@@ -29,8 +25,7 @@ type Payload struct {
 	Sound string      `json:"sound,omitempty"`
 }
 
-// From the APN documentation:
-// "You should use the ... alert dictionary in general only if you absolutely need to."
+// From the APN docs: "Use the ... alert dictionary in general only if you absolutely need to."
 type AlertDictionary struct {
 	Body         string   `json:"body,omitempty"`
 	ActionLocKey string   `json:"action-loc-key,omitempty"`
@@ -39,9 +34,7 @@ type AlertDictionary struct {
 	LaunchImage  string   `json:"launch-image,omitempty"`
 }
 
-// The Envelope is the overall wrapper for the various push notification fields.
-// The length fields are computed in ToBytes() and as such aren't represented
-// in the struct itself.
+// The length fields are computed in ToBytes() and aren't represented here.
 type Envelope struct {
 	Identifier  int32
 	Expiry      uint32
@@ -55,7 +48,6 @@ func (this *Envelope) AddPayload(p *Payload) {
 }
 
 // The push notification requests support arbitrary custom metadata.
-// This method requires a string key and any type for the value.
 func (this *Envelope) Set(key string, value interface{}) {
 	if this.payload == nil {
 		this.payload = make(map[string]interface{})
@@ -63,12 +55,10 @@ func (this *Envelope) Set(key string, value interface{}) {
 	this.payload[key] = value
 }
 
-// This method looks up a string key and returns the value, or nil.
 func (this *Envelope) Get(key string) interface{} {
 	return this.payload[key]
 }
 
-// Returns the JSON structure as a byte array.
 func (this *Envelope) PayloadJSON() ([]byte, error) {
 	return json.Marshal(this.payload)
 }
