@@ -63,6 +63,11 @@ func (this *Envelope) PayloadJSON() ([]byte, error) {
 	return json.Marshal(this.payload)
 }
 
+func (this *Envelope) PayloadString() (string, error) {
+	j, err := this.PayloadJSON()
+	return string(j), err
+}
+
 // Returns a byte array of the complete Envelope struct. This array
 // is what should be transmitted to the APN Service.
 func (this *Envelope) ToBytes() ([]byte, error) {
