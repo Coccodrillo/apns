@@ -14,13 +14,13 @@ func mockPayload() (payload *Payload) {
 	return
 }
 
-// Create a new DictionaryAlert. Apple recommends you not use
+// Create a new AlertDictionary. Apple recommends you not use
 // the more complex alert style unless absolutely necessary.
-func mockDictionaryAlert() (dict *DictionaryAlert) {
+func mockAlertDictionary() (dict *AlertDictionary) {
 	args := make([]string, 1)
 	args[0] = "localized args"
 
-	dict = new(DictionaryAlert)
+	dict = new(AlertDictionary)
 	dict.Body = "Complex Message"
 	dict.ActionLocKey = "Play a Game!"
 	dict.LocKey = "localized key"
@@ -45,8 +45,8 @@ func TestBasicAlert(t *testing.T) {
 	}
 }
 
-func TestDictionaryAlert(t *testing.T) {
-	dict := mockDictionaryAlert()
+func TestAlertDictionary(t *testing.T) {
+	dict := mockAlertDictionary()
 	payload := mockPayload()
 	payload.Alert = dict
 

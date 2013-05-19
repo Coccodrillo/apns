@@ -23,6 +23,22 @@ const PUSH_COMMAND_VALUE = 1
 // The total length of the payload cannot exceed this amount.
 const MAX_PAYLOAD_SIZE_BYTES = 256
 
+type Payload struct {
+	Alert interface{} `json:"alert,omitempty"`
+	Badge int         `json:"badge,omitempty"`
+	Sound string      `json:"sound,omitempty"`
+}
+
+// From the APN documentation:
+// "You should use the ... alert dictionary in general only if you absolutely need to."
+type AlertDictionary struct {
+	Body         string   `json:"body,omitempty"`
+	ActionLocKey string   `json:"action-loc-key,omitempty"`
+	LocKey       string   `json:"loc-key,omitempty"`
+	LocArgs      []string `json:"loc-args,omitempty"`
+	LaunchImage  string   `json:"launch-image,omitempty"`
+}
+
 // The Envelope is the overall wrapper for the various push notification fields.
 // The length fields are computed in ToBytes() and as such aren't represented
 // in the struct itself.
@@ -32,20 +48,6 @@ type Envelope struct {
 	DeviceToken string
 
 	payload map[string]interface{}
-}
-
-type Payload struct {
-	Alert interface{} `json:"alert,omitempty"`
-	Badge int         `json:"badge,omitempty"`
-	Sound string      `json:"sound,omitempty"`
-}
-
-type DictionaryAlert struct {
-	Body         string   `json:"body,omitempty"`
-	ActionLocKey string   `json:"action-loc-key,omitempty"`
-	LocKey       string   `json:"loc-key,omitempty"`
-	LocArgs      []string `json:"loc-args,omitempty"`
-	LaunchImage  string   `json:"launch-image,omitempty"`
 }
 
 func (this *Envelope) AddPayload(p *Payload) {
