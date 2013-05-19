@@ -27,14 +27,14 @@ const MAX_PAYLOAD_SIZE_BYTES = 256
 // The length fields are computed in ToBytes() and as such aren't represented
 // in the struct itself.
 type Envelope struct {
-	Identifier  int32  `json:"-"`
-	Expiry      uint32 `json:"-"`
-	DeviceToken string `json:"-"`
+	Identifier  int32
+	Expiry      uint32
+	DeviceToken string
 
-	payload map[string]interface{} `json:"-"`
+	payload map[string]interface{}
 }
 
-type Message struct {
+type Payload struct {
 	Alert interface{} `json:"alert,omitempty"`
 	Badge int         `json:"badge,omitempty"`
 	Sound string      `json:"sound,omitempty"`
@@ -48,9 +48,8 @@ type DictionaryAlert struct {
 	LaunchImage  string   `json:"launch-image,omitempty"`
 }
 
-// Inserts the message into the envelope.
-func (this *Envelope) SetMessage(m *Message) {
-	this.Set("aps", m)
+func (this *Envelope) AddPayload(p *Payload) {
+	this.Set("aps", p)
 }
 
 // The push notification requests support arbitrary custom metadata.
