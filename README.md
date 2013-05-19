@@ -99,7 +99,6 @@ func main() {
 ```
 
 ### Setting custom properties
-
 ```go
 package main
 
@@ -126,6 +125,7 @@ func main() {
 }
 ```
 
+#### Returns
 ```json
 {
   "aps": {
