@@ -1,10 +1,3 @@
-// apns.go
-//
-// Documentation related to the JSON alert message:
-// http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html
-//
-// Documentation related to the binary protocol:
-// http://developer.apple.com/library/ios/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html
 package apns
 
 import (
