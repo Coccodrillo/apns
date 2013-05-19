@@ -1,5 +1,10 @@
 # apns
-## Utilities for Apple Push Notification and Feedback Services
+
+Utilities for Apple Push Notification and Feedback Services.This package is still a work-in-progress.
+
+Currently the low-level primitives for assembling JSON and binary payloads are working. Next will be the TCP client for reaching out to the APNs Service and dealing with responses. After that will be the feedback service to check for invalidated tokens.
+
+Ideally, the common use case of sending a simple text update will be a two-line call (set up a client, send the text alert). You shouldn't need to deal with the primitives unless you so desire.
 
 ## Installation
 
