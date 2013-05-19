@@ -6,7 +6,7 @@ import (
 
 func TestBasicAlert(t *testing.T) {
 	message := new(Message)
-	message.BasicAlert = "You have mail!"
+	message.Alert = "You have mail!"
 
 	envelope := new(Envelope)
 	envelope.SetMessage(message)
@@ -16,7 +16,7 @@ func TestBasicAlert(t *testing.T) {
 		t.Error("expected 47 bytes; got", len(bytes))
 	}
 
-	json, _ := envelope.ToJSON()
+	json, _ := envelope.PayloadJSON()
 	if len(json) != 34 {
 		t.Error("expected 34 bytes; got", len(json))
 	}
@@ -36,7 +36,7 @@ func TestDictionaryAlert(t *testing.T) {
 	message := new(Message)
 	message.Badge = 42
 	message.Sound = "bingbong.aiff"
-	message.DictionaryAlert = dict
+	message.Alert = dict
 
 	envelope := new(Envelope)
 	envelope.SetMessage(message)
@@ -46,7 +46,7 @@ func TestDictionaryAlert(t *testing.T) {
 		t.Error("expected 207 bytes; got", len(bytes))
 	}
 
-	json, _ := envelope.ToJSON()
+	json, _ := envelope.PayloadJSON()
 	if len(json) != 194 {
 		t.Error("expected 194 bytes; got", len(bytes))
 	}
@@ -54,7 +54,7 @@ func TestDictionaryAlert(t *testing.T) {
 
 func TestCustomParameters(t *testing.T) {
 	message := new(Message)
-	message.BasicAlert = "You have mail!"
+	message.Alert = "You have mail!"
 
 	envelope := new(Envelope)
 	envelope.SetMessage(message)
@@ -65,7 +65,7 @@ func TestCustomParameters(t *testing.T) {
 		t.Error("expected 62 bytes; got", len(bytes))
 	}
 
-	json, _ := envelope.ToJSON()
+	json, _ := envelope.PayloadJSON()
 	if len(json) != 49 {
 		t.Error("expected 49 bytes; got", len(bytes))
 	}

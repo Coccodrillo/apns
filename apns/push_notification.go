@@ -24,24 +24,20 @@ const PUSH_COMMAND_VALUE = 1
 const MAX_PAYLOAD_SIZE_BYTES = 256
 
 // The Envelope is the overall wrapper for the various push notification fields.
-// It contains a Message, which may either contain a BasicAlert (which is a simple string
-// message) or a DictionaryAlert (which contains localization fields). Apple recommends using
-// the basic alert structure if at all possible.
-//
-// You can also set CustomProperties ( "acme": "foo" ) if desired. See the documentation
-// listed at the top of this file for more information on how to best use APNs.
+// The length fields are computed in ToBytes() and as such aren't represented
+// in the struct itself.
 type Envelope struct {
-	DeviceToken      string                 `json:"-"`
-	Identifier       int32                  `json:"-"`
-	Expiry           uint32                 `json:"-"`
-	CustomProperties map[string]interface{} `json:"-"`
+	Identifier  int32  `json:"-"`
+	Expiry      uint32 `json:"-"`
+	DeviceToken string `json:"-"`
+
+	payload map[string]interface{} `json:"-"`
 }
 
 type Message struct {
-	BasicAlert      string           `json:"alert,omitempty"`
-	DictionaryAlert *DictionaryAlert `json:"alert,omitempty"`
-	Badge           int              `json:"badge,omitempty"`
-	Sound           string           `json:"sound,omitempty"`
+	Alert interface{} `json:"alert,omitempty"`
+	Badge int         `json:"badge,omitempty"`
+	Sound string      `json:"sound,omitempty"`
 }
 
 type DictionaryAlert struct {
@@ -60,32 +56,20 @@ func (this *Envelope) SetMessage(m *Message) {
 // The push notification requests support arbitrary custom metadata.
 // This method requires a string key and any type for the value.
 func (this *Envelope) Set(key string, value interface{}) {
-	if this.CustomProperties == nil {
-		this.CustomProperties = make(map[string]interface{})
+	if this.payload == nil {
+		this.payload = make(map[string]interface{})
 	}
-	this.CustomProperties[key] = value
+	this.payload[key] = value
 }
 
 // This method looks up a string key and returns the value, or nil.
 func (this *Envelope) Get(key string) interface{} {
-	if this.CustomProperties == nil {
-		return nil
-	}
-	return this.CustomProperties[key]
+	return this.payload[key]
 }
 
 // Returns the JSON structure as a byte array.
-func (this *Envelope) ToJSON() ([]byte, error) {
-	return json.Marshal(this.CustomProperties)
-}
-
-// Returns the JSON structure as a string.
-func (this *Envelope) ToString() string {
-	j, err := this.ToJSON()
-	if err != nil {
-		return ""
-	}
-	return string(j)
+func (this *Envelope) PayloadJSON() ([]byte, error) {
+	return json.Marshal(this.payload)
 }
 
 // Returns a byte array of the complete Envelope struct. This array
@@ -95,7 +79,7 @@ func (this *Envelope) ToBytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	payload, err := this.ToJSON()
+	payload, err := this.PayloadJSON()
 	if err != nil {
 		return nil, err
 	}
