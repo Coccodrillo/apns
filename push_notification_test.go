@@ -31,12 +31,12 @@ func mockAlertDictionary() (dict *AlertDictionary) {
 
 func TestBasicAlert(t *testing.T) {
 	payload := mockPayload()
-	envelope := new(Envelope)
+	pn := NewPushNotification()
 
-	envelope.AddPayload(payload)
+	pn.AddPayload(payload)
 
-	bytes, _ := envelope.ToBytes()
-	json, _ := envelope.PayloadJSON()
+	bytes, _ := pn.ToBytes()
+	json, _ := pn.PayloadJSON()
 	if len(bytes) != 82 {
 		t.Error("expected 82 bytes; got", len(bytes))
 	}
@@ -50,11 +50,11 @@ func TestAlertDictionary(t *testing.T) {
 	payload := mockPayload()
 	payload.Alert = dict
 
-	envelope := new(Envelope)
-	envelope.AddPayload(payload)
+	pn := NewPushNotification()
+	pn.AddPayload(payload)
 
-	bytes, _ := envelope.ToBytes()
-	json, _ := envelope.PayloadJSON()
+	bytes, _ := pn.ToBytes()
+	json, _ := pn.PayloadJSON()
 	if len(bytes) != 207 {
 		t.Error("expected 207 bytes; got", len(bytes))
 	}
@@ -65,20 +65,20 @@ func TestAlertDictionary(t *testing.T) {
 
 func TestCustomParameters(t *testing.T) {
 	payload := mockPayload()
-	envelope := new(Envelope)
+	pn := NewPushNotification()
 
-	envelope.AddPayload(payload)
-	envelope.Set("foo", "bar")
+	pn.AddPayload(payload)
+	pn.Set("foo", "bar")
 
-	if envelope.Get("foo") != "bar" {
+	if pn.Get("foo") != "bar" {
 		t.Error("unable to set a custom property")
 	}
-	if envelope.Get("not_set") != nil {
+	if pn.Get("not_set") != nil {
 		t.Error("expected a missing key to return nil")
 	}
 
-	bytes, _ := envelope.ToBytes()
-	json, _ := envelope.PayloadJSON()
+	bytes, _ := pn.ToBytes()
+	json, _ := pn.PayloadJSON()
 	if len(bytes) != 94 {
 		t.Error("expected 94 bytes; got", len(bytes))
 	}

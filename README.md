@@ -17,7 +17,7 @@ Ideally, the common use case of sending a simple text update will be a two-line 
 
 ## Usage
 
-### Creating envelopes and payloads manually
+### Creating pns and payloads manually
 ```go
 package main
 
@@ -32,10 +32,10 @@ func main() {
   payload.Badge = 42
   payload.Sound = "bingbong.aiff"
 
-  envelope := new(apns.Envelope)
-  envelope.AddPayload(payload)
+  pn := apns.NewPushNotification()
+  pn.AddPayload(payload)
 
-  alert, _ := envelope.PayloadString()
+  alert, _ := pn.PayloadString()
   fmt.Println(alert)
 }
 ```
@@ -76,10 +76,10 @@ func main() {
   payload.Badge = 42
   payload.Sound = "bingbong.aiff"
 
-  envelope := new(apns.Envelope)
-  envelope.AddPayload(payload)
+  pn := apns.NewPushNotification()
+  pn.AddPayload(payload)
 
-  alert, _ := envelope.PayloadString()
+  alert, _ := pn.PayloadString()
   fmt.Println(alert)
 }
 ```
@@ -118,14 +118,14 @@ func main() {
   payload.Badge = 42
   payload.Sound = "bingbong.aiff"
 
-  envelope := new(apns.Envelope)
-  envelope.AddPayload(payload)
+  pn := apns.NewPushNotification()
+  pn.AddPayload(payload)
 
-  envelope.Set("foo", "bar")
-  envelope.Set("doctor", "who?")
-  envelope.Set("the_ultimate_answer", 42)
+  pn.Set("foo", "bar")
+  pn.Set("doctor", "who?")
+  pn.Set("the_ultimate_answer", 42)
 
-  alert, _ := envelope.PayloadString()
+  alert, _ := pn.PayloadString()
   fmt.Println(alert)
 }
 ```
