@@ -4,7 +4,7 @@ import ()
 
 // The maximum number of seconds we're willing to wait for a response
 // from the Apple Push Notification Service.
-const TIMEOUT_SECONDS = 3
+const TIMEOUT_SECONDS = 5
 
 // This enumerates the response codes that Apple defines
 // for push notification attempts.
