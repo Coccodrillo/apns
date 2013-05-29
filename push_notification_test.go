@@ -7,7 +7,7 @@ import (
 // Create a new Payload that specifies simple text,
 // a badge counter, and a custom notification sound.
 func mockPayload() (payload *Payload) {
-	payload = new(Payload)
+	payload = NewPayload()
 	payload.Alert = "You have mail!"
 	payload.Badge = 42
 	payload.Sound = "bingbong.aiff"
