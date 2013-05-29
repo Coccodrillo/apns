@@ -14,6 +14,7 @@ Ideally, the common use case of sending a simple text update will be a two-line 
 
 - [Information on the APN JSON payloads](http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html)
 - [Information on the APN binary protocols](http://developer.apple.com/library/ios/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html)
+- [Information on APN troubleshooting](http://developer.apple.com/library/ios/#technotes/tn2265/_index.html)
 
 ## Usage
 
@@ -142,4 +143,40 @@ func main() {
   "foo": "bar",
   "the_ultimate_answer": 42
 }
+```
+
+#### Sending a notification
+```go
+package main
+
+import (
+  "fmt"
+  apns "github.com/anachronistic/apns"
+)
+
+func main() {
+  payload := apns.NewPayload()
+  payload.Alert = "Hello, world!"
+  payload.Badge = 42
+  payload.Sound = "bingbong.aiff"
+
+  pn := apns.NewPushNotification()
+  pn.DeviceToken = "YOUR_DEVICE_TOKEN_HERE"
+  pn.AddPayload(payload)
+
+  client := apns.NewClient("gateway.sandbox.push.apple.com:2195", "YOUR_CERT_PEM", "YOUR_KEY_NOENC_PEM")
+  resp := client.Send(pn)
+
+  alert, _ := pn.PayloadString()
+  fmt.Println("  Alert:", alert)
+  fmt.Println("Success:", resp.Success)
+  fmt.Println("  Error:", resp.Error)
+}
+```
+
+#### Returns
+```shell
+  Alert: {"aps":{"alert":"Hello, world!","badge":42,"sound":"bingbong.aiff"}}
+Success: true
+  Error: <nil>
 ```
