@@ -35,6 +35,9 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 		resp.Error = err
 	}
 
+	resp.Success = true
+	resp.Error = nil
+
 	return
 }
 
