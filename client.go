@@ -29,7 +29,7 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 		resp.Error = err
 	}
 
-	resp, err = this.ConnectAndWrite(payload)
+	err = this.ConnectAndWrite(resp, payload)
 	if err != nil {
 		resp.Success = false
 		resp.Error = err
@@ -38,10 +38,10 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 	return
 }
 
-func (this *Client) ConnectAndWrite(payload []byte) (resp *PushNotificationResponse, err error) {
+func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
 	cert, err := tls.LoadX509KeyPair(this.CertificateFile, this.KeyFile)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	conf := &tls.Config{
@@ -50,18 +50,18 @@ func (this *Client) ConnectAndWrite(payload []byte) (resp *PushNotificationRespo
 
 	conn, err := net.Dial("tcp", this.Gateway)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	tlsConn := tls.Client(conn, conf)
 	err = tlsConn.Handshake()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, err = tlsConn.Write(payload)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Create one channel that will serve to handle
@@ -98,5 +98,5 @@ func (this *Client) ConnectAndWrite(payload []byte) (resp *PushNotificationRespo
 		resp.Success = true
 	}
 
-	return resp, nil
+	return nil
 }
