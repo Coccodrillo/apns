@@ -34,7 +34,7 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 		resp.Error = err
 	}
 
-	err = this.connectAndWrite(resp, payload)
+	err = this.ConnectAndWrite(resp, payload)
 	if err != nil {
 		resp.Success = false
 		resp.Error = err
@@ -54,7 +54,7 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 // Whichever channel puts data on first is the "winner". As such, it's
 // possible to get a false positive if Apple takes a long time to respond.
 // It's probably not a deal-breaker, but something to be aware of.
-func (this *Client) connectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
+func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
 	cert, err := tls.LoadX509KeyPair(this.CertificateFile, this.KeyFile)
 	if err != nil {
 		return err
