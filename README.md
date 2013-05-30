@@ -11,6 +11,7 @@ Utilities for Apple Push Notification and Feedback Services.
 
 ## Documentation
 
+- [APNS package documentation](http://godoc.org/github.com/anachronistic/apns)
 - [Information on the APN JSON payloads](http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html)
 - [Information on the APN binary protocols](http://developer.apple.com/library/ios/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html)
 - [Information on APN troubleshooting](http://developer.apple.com/library/ios/#technotes/tn2265/_index.html)
