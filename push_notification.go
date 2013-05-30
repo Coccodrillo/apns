@@ -36,6 +36,10 @@ type AlertDictionary struct {
 	LaunchImage  string   `json:"launch-image,omitempty"`
 }
 
+func NewAlertDictionary() *AlertDictionary {
+	return new(AlertDictionary)
+}
+
 // The length fields are computed in ToBytes() and aren't represented here.
 type PushNotification struct {
 	Identifier  int32
