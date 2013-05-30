@@ -1,10 +1,9 @@
 # apns
 
-Utilities for Apple Push Notification and Feedback Services.This package is still a work-in-progress.
+Utilities for Apple Push Notification and Feedback Services.
 
-Currently the low-level primitives for assembling JSON and binary payloads are working. Next will be the TCP client for reaching out to the APNs Service and dealing with responses. After that will be the feedback service to check for invalidated tokens.
-
-Ideally, the common use case of sending a simple text update will be a two-line call (set up a client, send the text alert). You shouldn't need to deal with the primitives unless you so desire.
+- push notification service is functional
+- feedback service is under development
 
 ## Installation
 
@@ -28,7 +27,7 @@ import (
 )
 
 func main() {
-  payload := new(apns.Payload)
+  payload := apns.NewPayload()
   payload.Alert = "Hello, world!"
   payload.Badge = 42
   payload.Sound = "bingbong.aiff"
@@ -65,14 +64,14 @@ func main() {
   args := make([]string, 1)
   args[0] = "localized args"
 
-  dict := new(apns.AlertDictionary)
+  dict := NewAlertDictionary()
   dict.Body = "Alice wants Bob to join in the fun!"
   dict.ActionLocKey = "Play a Game!"
   dict.LocKey = "localized key"
   dict.LocArgs = args
   dict.LaunchImage = "image.jpg"
 
-  payload := new(apns.Payload)
+  payload := apns.NewPayload()
   payload.Alert = dict
   payload.Badge = 42
   payload.Sound = "bingbong.aiff"
@@ -114,7 +113,7 @@ import (
 )
 
 func main() {
-  payload := new(apns.Payload)
+  payload := apns.NewPayload()
   payload.Alert = "Hello, world!"
   payload.Badge = 42
   payload.Sound = "bingbong.aiff"
