@@ -6,12 +6,15 @@ import (
 	"time"
 )
 
+// You'll need to provide your own CertificateFile
+// and KeyFile to send notifications.
 type Client struct {
 	Gateway         string
 	CertificateFile string
 	KeyFile         string
 }
 
+// Constructor.
 func NewClient(gateway, certificateFile, keyFile string) (c *Client) {
 	c = new(Client)
 	c.Gateway = gateway
@@ -20,6 +23,8 @@ func NewClient(gateway, certificateFile, keyFile string) (c *Client) {
 	return
 }
 
+// Connects to the APN service and sends your push notification.
+// Remember that if the submission is successful, Apple won't reply.
 func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) {
 	resp = new(PushNotificationResponse)
 
@@ -29,7 +34,7 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 		resp.Error = err
 	}
 
-	err = this.ConnectAndWrite(resp, payload)
+	err = this.connectAndWrite(resp, payload)
 	if err != nil {
 		resp.Success = false
 		resp.Error = err
@@ -41,7 +46,15 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 	return
 }
 
-func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
+// In lieu of a timeout (which would be available in Go 1.1)
+// we use a timeout channel pattern instead. We start two goroutines,
+// one of which just sleeps for TIMEOUT_SECONDS seconds, while the other
+// waits for a response from the Apple servers.
+//
+// Whichever channel puts data on first is the "winner". As such, it's
+// possible to get a false positive if Apple takes a long time to respond.
+// It's probably not a deal-breaker, but something to be aware of.
+func (this *Client) connectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
 	cert, err := tls.LoadX509KeyPair(this.CertificateFile, this.KeyFile)
 	if err != nil {
 		return err

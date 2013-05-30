@@ -11,8 +11,15 @@ import (
 	"time"
 )
 
+// Push commands always start with command value 1.
 const PUSH_COMMAND_VALUE = 1
+
+// Your total notification payload cannot exceed 256 bytes.
 const MAX_PAYLOAD_SIZE_BYTES = 256
+
+// Every push notification gets a pseudo-unique identifier;
+// this establishes the upper boundary for it. Apple will return
+// this identifier if there is an issue sending your notification.
 const IDENTIFIER_UBOUND = 9999
 
 // Alert is an interface here because it supports either a string
@@ -23,11 +30,13 @@ type Payload struct {
 	Sound string      `json:"sound,omitempty"`
 }
 
+// Constructor.
 func NewPayload() *Payload {
 	return new(Payload)
 }
 
 // From the APN docs: "Use the ... alert dictionary in general only if you absolutely need to."
+// The AlertDictionary is suitable for specific localization needs.
 type AlertDictionary struct {
 	Body         string   `json:"body,omitempty"`
 	ActionLocKey string   `json:"action-loc-key,omitempty"`
@@ -36,10 +45,12 @@ type AlertDictionary struct {
 	LaunchImage  string   `json:"launch-image,omitempty"`
 }
 
+// Constructor.
 func NewAlertDictionary() *AlertDictionary {
 	return new(AlertDictionary)
 }
 
+// The PushNotification is the wrapper for the Payload.
 // The length fields are computed in ToBytes() and aren't represented here.
 type PushNotification struct {
 	Identifier  int32
@@ -48,6 +59,7 @@ type PushNotification struct {
 	payload     map[string]interface{}
 }
 
+// Constructor. Also initializes the pseudo-random identifier.
 func NewPushNotification() (pn *PushNotification) {
 	pn = new(PushNotification)
 	pn.payload = make(map[string]interface{})

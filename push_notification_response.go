@@ -28,6 +28,7 @@ type PushNotificationResponse struct {
 	Error         error
 }
 
+// Constructor.
 func NewPushNotificationResponse() (resp *PushNotificationResponse) {
 	resp = new(PushNotificationResponse)
 	resp.Success = false
