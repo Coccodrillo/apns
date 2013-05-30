@@ -20,7 +20,7 @@ func mockAlertDictionary() (dict *AlertDictionary) {
 	args := make([]string, 1)
 	args[0] = "localized args"
 
-	dict = new(AlertDictionary)
+	dict = NewAlertDictionary()
 	dict.Body = "Complex Message"
 	dict.ActionLocKey = "Play a Game!"
 	dict.LocKey = "localized key"
