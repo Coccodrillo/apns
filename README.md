@@ -2,9 +2,6 @@
 
 Utilities for Apple Push Notification and Feedback Services.
 
-- push notification service is functional
-- feedback service is under development
-
 ## Installation
 
 `go get github.com/anachronistic/apns`
