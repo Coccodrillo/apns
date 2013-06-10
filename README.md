@@ -145,7 +145,7 @@ func main() {
 }
 ```
 
-#### Sending a notification
+### Sending a notification
 ```go
 package main
 
@@ -179,4 +179,46 @@ func main() {
   Alert: {"aps":{"alert":"Hello, world!","badge":42,"sound":"bingbong.aiff"}}
 Success: true
   Error: <nil>
+```
+
+### Checking the feedback service
+```go
+package main
+
+import (
+  "fmt"
+  apns "github.com/anachronistic/apns"
+  "os"
+)
+
+func main() {
+  fmt.Println("- connecting to check for deactivated tokens (maximum read timeout =", apns.FEEDBACK_TIMEOUT_SECONDS, "seconds)")
+
+  client := apns.NewClient("gateway.sandbox.push.apple.com:2195", "YOUR_CERT_PEM", "YOUR_KEY_NOENC_PEM")
+  go client.ListenForFeedback()
+
+  for {
+    select {
+    case resp := <-apns.FeedbackChannel:
+      fmt.Println("- recv'd:", resp.DeviceToken)
+    case <-apns.ShutdownChannel:
+      fmt.Println("- nothing returned from the feedback service")
+      os.Exit(1)
+    }
+  }
+}
+```
+
+#### Returns
+```shell
+- connecting to check for deactivated tokens (maximum read timeout = 5 seconds)
+- nothing returned from the feedback service
+exit status 1
+```
+
+Your output will differ if the service returns device tokens.
+
+```shell
+- recv'd: DEVICE_TOKEN_HERE
+...etc.
 ```
