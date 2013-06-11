@@ -14,6 +14,14 @@ func mockPayload() (payload *Payload) {
 	return
 }
 
+// See the commentary in push_notification.go for information
+// on why we're testing a badge of value 0.
+func mockZeroBadgePayload() (payload *Payload) {
+	payload = mockPayload()
+	payload.Badge = 0
+	return
+}
+
 // Create a new AlertDictionary. Apple recommends you not use
 // the more complex alert style unless absolutely necessary.
 func mockAlertDictionary() (dict *AlertDictionary) {
@@ -84,5 +92,15 @@ func TestCustomParameters(t *testing.T) {
 	}
 	if len(json) != 81 {
 		t.Error("expected 81 bytes; got", len(json))
+	}
+}
+
+func TestZeroBadgeChangesToNegativeOne(t *testing.T) {
+	payload := mockZeroBadgePayload()
+	pn := NewPushNotification()
+	pn.AddPayload(payload)
+
+	if payload.Badge != -1 {
+		t.Error("expected 0 badge value to be converted to -1; got", payload.Badge)
 	}
 }
