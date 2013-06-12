@@ -7,11 +7,17 @@ import (
 )
 
 // You'll need to provide your own CertificateFile
-// and KeyFile to send notifications.
+// and KeyFile to send notifications. Ideally, you'll
+// just set the CertificateFile and KeyFile fields to
+// a location on drive where the certs can be loaded,
+// but if you prefer you can use the CertificateBase64
+// and KeyBase64 fields to store the actual contents.
 type Client struct {
-	Gateway         string
-	CertificateFile string
-	KeyFile         string
+	Gateway           string
+	CertificateFile   string
+	CertificateBase64 string
+	KeyFile           string
+	KeyBase64         string
 }
 
 // Constructor.
@@ -55,7 +61,14 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 // possible to get a false positive if Apple takes a long time to respond.
 // It's probably not a deal-breaker, but something to be aware of.
 func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
-	cert, err := tls.LoadX509KeyPair(this.CertificateFile, this.KeyFile)
+	var cert tls.Certificate
+
+	if len(this.CertificateBase64) == 0 && len(this.KeyBase64) == 0 {
+		cert, err = tls.X509KeyPair([]byte(this.CertificateBase64), []byte(this.KeyBase64))
+	} else {
+		cert, err = tls.LoadX509KeyPair(this.CertificateFile, this.KeyFile)
+	}
+
 	if err != nil {
 		return err
 	}
