@@ -64,9 +64,11 @@ func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []by
 	var cert tls.Certificate
 
 	if len(this.CertificateBase64) == 0 && len(this.KeyBase64) == 0 {
-		cert, err = tls.X509KeyPair([]byte(this.CertificateBase64), []byte(this.KeyBase64))
-	} else {
+		// The user did not specify raw block contents, so check the filesystem.
 		cert, err = tls.LoadX509KeyPair(this.CertificateFile, this.KeyFile)
+	} else {
+		// The user provided the raw block contents, so use that.
+		cert, err = tls.X509KeyPair([]byte(this.CertificateBase64), []byte(this.KeyBase64))
 	}
 
 	if err != nil {
