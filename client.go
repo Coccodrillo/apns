@@ -20,7 +20,16 @@ type Client struct {
 	KeyBase64         string
 }
 
-// Constructor.
+// Constructor. Use this if you want to set cert and key blocks manually.
+func BareClient(gateway, certificateBase64, keyBase64 string) (c *Client) {
+	c = new(Client)
+	c.Gateway = gateway
+	c.CertificateBase64 = certificateBase64
+	c.KeyBase64 = keyBase64
+	return
+}
+
+// Constructor. Use this if you want to load cert and key blocks from a file.
 func NewClient(gateway, certificateFile, keyFile string) (c *Client) {
 	c = new(Client)
 	c.Gateway = gateway
