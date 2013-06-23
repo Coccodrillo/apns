@@ -1,0 +1,281 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>apns by anachronistic</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/anachronistic/apns">View On GitHub</a></li>
+          <li class="downloads"><a href="https://github.com/anachronistic/apns/zipball/master">ZIP</a></li>
+          <li class="downloads"><a href="https://github.com/anachronistic/apns/tarball/master">TAR</a></li>
+          <li class="title">DOWNLOADS</li>
+        </nav>
+      </div><!-- end header -->
+
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>apns</h1>
+          <p>Golang package for working with Apple's Push Notification and Feedback Services</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/anachronistic">anachronistic</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
+        </div>
+
+        <h1>
+<a name="apns" class="anchor" href="#apns"><span class="octicon octicon-link"></span></a>apns</h1>
+
+<p>Utilities for Apple Push Notification and Feedback Services.</p>
+
+<h2>
+<a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h2>
+
+<p><code>go get github.com/anachronistic/apns</code></p>
+
+<h2>
+<a name="documentation" class="anchor" href="#documentation"><span class="octicon octicon-link"></span></a>Documentation</h2>
+
+<ul>
+<li><a href="http://godoc.org/github.com/anachronistic/apns">APNS package documentation</a></li>
+<li><a href="http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html">Information on the APN JSON payloads</a></li>
+<li><a href="http://developer.apple.com/library/ios/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html">Information on the APN binary protocols</a></li>
+<li><a href="http://developer.apple.com/library/ios/#technotes/tn2265/_index.html">Information on APN troubleshooting</a></li>
+</ul><h2>
+<a name="usage" class="anchor" href="#usage"><span class="octicon octicon-link"></span></a>Usage</h2>
+
+<h3>
+<a name="creating-pns-and-payloads-manually" class="anchor" href="#creating-pns-and-payloads-manually"><span class="octicon octicon-link"></span></a>Creating pns and payloads manually</h3>
+
+<div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+  <span class="s">"fmt"</span>
+  <span class="nx">apns</span> <span class="s">"github.com/anachronistic/apns"</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nx">payload</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewPayload</span><span class="p">()</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Alert</span> <span class="p">=</span> <span class="s">"Hello, world!"</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Badge</span> <span class="p">=</span> <span class="mi">42</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Sound</span> <span class="p">=</span> <span class="s">"bingbong.aiff"</span>
+
+  <span class="nx">pn</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewPushNotification</span><span class="p">()</span>
+  <span class="nx">pn</span><span class="p">.</span><span class="nx">AddPayload</span><span class="p">(</span><span class="nx">payload</span><span class="p">)</span>
+
+  <span class="nx">alert</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">pn</span><span class="p">.</span><span class="nx">PayloadString</span><span class="p">()</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">alert</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+
+<h4>
+<a name="returns" class="anchor" href="#returns"><span class="octicon octicon-link"></span></a>Returns</h4>
+
+<div class="highlight"><pre><span class="p">{</span>
+  <span class="nt">"aps"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">"alert"</span><span class="p">:</span> <span class="s2">"Hello, world!"</span><span class="p">,</span>
+    <span class="nt">"badge"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+    <span class="nt">"sound"</span><span class="p">:</span> <span class="s2">"bingbong.aiff"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="using-an-alert-dictionary-for-complex-payloads" class="anchor" href="#using-an-alert-dictionary-for-complex-payloads"><span class="octicon octicon-link"></span></a>Using an alert dictionary for complex payloads</h3>
+
+<div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+  <span class="s">"fmt"</span>
+  <span class="nx">apns</span> <span class="s">"github.com/anachronistic/apns"</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nx">args</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="kt">string</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+  <span class="nx">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">=</span> <span class="s">"localized args"</span>
+
+  <span class="nx">dict</span> <span class="o">:=</span> <span class="nx">NewAlertDictionary</span><span class="p">()</span>
+  <span class="nx">dict</span><span class="p">.</span><span class="nx">Body</span> <span class="p">=</span> <span class="s">"Alice wants Bob to join in the fun!"</span>
+  <span class="nx">dict</span><span class="p">.</span><span class="nx">ActionLocKey</span> <span class="p">=</span> <span class="s">"Play a Game!"</span>
+  <span class="nx">dict</span><span class="p">.</span><span class="nx">LocKey</span> <span class="p">=</span> <span class="s">"localized key"</span>
+  <span class="nx">dict</span><span class="p">.</span><span class="nx">LocArgs</span> <span class="p">=</span> <span class="nx">args</span>
+  <span class="nx">dict</span><span class="p">.</span><span class="nx">LaunchImage</span> <span class="p">=</span> <span class="s">"image.jpg"</span>
+
+  <span class="nx">payload</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewPayload</span><span class="p">()</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Alert</span> <span class="p">=</span> <span class="nx">dict</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Badge</span> <span class="p">=</span> <span class="mi">42</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Sound</span> <span class="p">=</span> <span class="s">"bingbong.aiff"</span>
+
+  <span class="nx">pn</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewPushNotification</span><span class="p">()</span>
+  <span class="nx">pn</span><span class="p">.</span><span class="nx">AddPayload</span><span class="p">(</span><span class="nx">payload</span><span class="p">)</span>
+
+  <span class="nx">alert</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">pn</span><span class="p">.</span><span class="nx">PayloadString</span><span class="p">()</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">alert</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+
+<h4>
+<a name="returns-1" class="anchor" href="#returns-1"><span class="octicon octicon-link"></span></a>Returns</h4>
+
+<div class="highlight"><pre><span class="p">{</span>
+  <span class="nt">"aps"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">"alert"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">"body"</span><span class="p">:</span> <span class="s2">"Alice wants Bob to join in the fun!"</span><span class="p">,</span>
+      <span class="nt">"action-loc-key"</span><span class="p">:</span> <span class="s2">"Play a Game!"</span><span class="p">,</span>
+      <span class="nt">"loc-key"</span><span class="p">:</span> <span class="s2">"localized key"</span><span class="p">,</span>
+      <span class="nt">"loc-args"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">"localized args"</span>
+      <span class="p">],</span>
+      <span class="nt">"launch-image"</span><span class="p">:</span> <span class="s2">"image.jpg"</span>
+    <span class="p">},</span>
+    <span class="nt">"badge"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+    <span class="nt">"sound"</span><span class="p">:</span> <span class="s2">"bingbong.aiff"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="setting-custom-properties" class="anchor" href="#setting-custom-properties"><span class="octicon octicon-link"></span></a>Setting custom properties</h3>
+
+<div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+  <span class="s">"fmt"</span>
+  <span class="nx">apns</span> <span class="s">"github.com/anachronistic/apns"</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nx">payload</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewPayload</span><span class="p">()</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Alert</span> <span class="p">=</span> <span class="s">"Hello, world!"</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Badge</span> <span class="p">=</span> <span class="mi">42</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Sound</span> <span class="p">=</span> <span class="s">"bingbong.aiff"</span>
+
+  <span class="nx">pn</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewPushNotification</span><span class="p">()</span>
+  <span class="nx">pn</span><span class="p">.</span><span class="nx">AddPayload</span><span class="p">(</span><span class="nx">payload</span><span class="p">)</span>
+
+  <span class="nx">pn</span><span class="p">.</span><span class="nx">Set</span><span class="p">(</span><span class="s">"foo"</span><span class="p">,</span> <span class="s">"bar"</span><span class="p">)</span>
+  <span class="nx">pn</span><span class="p">.</span><span class="nx">Set</span><span class="p">(</span><span class="s">"doctor"</span><span class="p">,</span> <span class="s">"who?"</span><span class="p">)</span>
+  <span class="nx">pn</span><span class="p">.</span><span class="nx">Set</span><span class="p">(</span><span class="s">"the_ultimate_answer"</span><span class="p">,</span> <span class="mi">42</span><span class="p">)</span>
+
+  <span class="nx">alert</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">pn</span><span class="p">.</span><span class="nx">PayloadString</span><span class="p">()</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">alert</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+
+<h4>
+<a name="returns-2" class="anchor" href="#returns-2"><span class="octicon octicon-link"></span></a>Returns</h4>
+
+<div class="highlight"><pre><span class="p">{</span>
+  <span class="nt">"aps"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">"alert"</span><span class="p">:</span> <span class="s2">"Hello, world!"</span><span class="p">,</span>
+    <span class="nt">"badge"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+    <span class="nt">"sound"</span><span class="p">:</span> <span class="s2">"bingbong.aiff"</span>
+  <span class="p">},</span>
+  <span class="nt">"doctor"</span><span class="p">:</span> <span class="s2">"who?"</span><span class="p">,</span>
+  <span class="nt">"foo"</span><span class="p">:</span> <span class="s2">"bar"</span><span class="p">,</span>
+  <span class="nt">"the_ultimate_answer"</span><span class="p">:</span> <span class="mi">42</span>
+<span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="sending-a-notification" class="anchor" href="#sending-a-notification"><span class="octicon octicon-link"></span></a>Sending a notification</h3>
+
+<div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+  <span class="s">"fmt"</span>
+  <span class="nx">apns</span> <span class="s">"github.com/anachronistic/apns"</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nx">payload</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewPayload</span><span class="p">()</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Alert</span> <span class="p">=</span> <span class="s">"Hello, world!"</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Badge</span> <span class="p">=</span> <span class="mi">42</span>
+  <span class="nx">payload</span><span class="p">.</span><span class="nx">Sound</span> <span class="p">=</span> <span class="s">"bingbong.aiff"</span>
+
+  <span class="nx">pn</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewPushNotification</span><span class="p">()</span>
+  <span class="nx">pn</span><span class="p">.</span><span class="nx">DeviceToken</span> <span class="p">=</span> <span class="s">"YOUR_DEVICE_TOKEN_HERE"</span>
+  <span class="nx">pn</span><span class="p">.</span><span class="nx">AddPayload</span><span class="p">(</span><span class="nx">payload</span><span class="p">)</span>
+
+  <span class="nx">client</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewClient</span><span class="p">(</span><span class="s">"gateway.sandbox.push.apple.com:2195"</span><span class="p">,</span> <span class="s">"YOUR_CERT_PEM"</span><span class="p">,</span> <span class="s">"YOUR_KEY_NOENC_PEM"</span><span class="p">)</span>
+  <span class="nx">resp</span> <span class="o">:=</span> <span class="nx">client</span><span class="p">.</span><span class="nx">Send</span><span class="p">(</span><span class="nx">pn</span><span class="p">)</span>
+
+  <span class="nx">alert</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">pn</span><span class="p">.</span><span class="nx">PayloadString</span><span class="p">()</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">"  Alert:"</span><span class="p">,</span> <span class="nx">alert</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">"Success:"</span><span class="p">,</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Success</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">"  Error:"</span><span class="p">,</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Error</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+
+<h4>
+<a name="returns-3" class="anchor" href="#returns-3"><span class="octicon octicon-link"></span></a>Returns</h4>
+
+<pre lang="shell"><code>  Alert: {"aps":{"alert":"Hello, world!","badge":42,"sound":"bingbong.aiff"}}
+Success: true
+  Error: &lt;nil&gt;
+</code></pre>
+
+<h3>
+<a name="checking-the-feedback-service" class="anchor" href="#checking-the-feedback-service"><span class="octicon octicon-link"></span></a>Checking the feedback service</h3>
+
+<div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+  <span class="s">"fmt"</span>
+  <span class="nx">apns</span> <span class="s">"github.com/anachronistic/apns"</span>
+  <span class="s">"os"</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">"- connecting to check for deactivated tokens (maximum read timeout ="</span><span class="p">,</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">FEEDBACK_TIMEOUT_SECONDS</span><span class="p">,</span> <span class="s">"seconds)"</span><span class="p">)</span>
+
+  <span class="nx">client</span> <span class="o">:=</span> <span class="nx">apns</span><span class="p">.</span><span class="nx">NewClient</span><span class="p">(</span><span class="s">"gateway.sandbox.push.apple.com:2195"</span><span class="p">,</span> <span class="s">"YOUR_CERT_PEM"</span><span class="p">,</span> <span class="s">"YOUR_KEY_NOENC_PEM"</span><span class="p">)</span>
+  <span class="k">go</span> <span class="nx">client</span><span class="p">.</span><span class="nx">ListenForFeedback</span><span class="p">()</span>
+
+  <span class="k">for</span> <span class="p">{</span>
+    <span class="k">select</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nx">resp</span> <span class="o">:=</span> <span class="o">&lt;-</span><span class="nx">apns</span><span class="p">.</span><span class="nx">FeedbackChannel</span><span class="p">:</span>
+      <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">"- recv'd:"</span><span class="p">,</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">DeviceToken</span><span class="p">)</span>
+    <span class="k">case</span> <span class="o">&lt;-</span><span class="nx">apns</span><span class="p">.</span><span class="nx">ShutdownChannel</span><span class="p">:</span>
+      <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">"- nothing returned from the feedback service"</span><span class="p">)</span>
+      <span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<h4>
+<a name="returns-4" class="anchor" href="#returns-4"><span class="octicon octicon-link"></span></a>Returns</h4>
+
+<pre lang="shell"><code>- connecting to check for deactivated tokens (maximum read timeout = 5 seconds)
+- nothing returned from the feedback service
+exit status 1
+</code></pre>
+
+<p>Your output will differ if the service returns device tokens.</p>
+
+<pre lang="shell"><code>- recv'd: DEVICE_TOKEN_HERE
+...etc.
+</code></pre>
+      </section>
+
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
