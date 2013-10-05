@@ -92,12 +92,14 @@ func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []by
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 
 	tlsConn := tls.Client(conn, conf)
 	err = tlsConn.Handshake()
 	if err != nil {
 		return err
 	}
+	defer tlsConn.Close()
 
 	_, err = tlsConn.Write(payload)
 	if err != nil {
