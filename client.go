@@ -47,6 +47,7 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 	if err != nil {
 		resp.Success = false
 		resp.Error = err
+		return
 	}
 
 	err = this.ConnectAndWrite(resp, payload)
