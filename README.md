@@ -62,7 +62,7 @@ func main() {
   args := make([]string, 1)
   args[0] = "localized args"
 
-  dict := NewAlertDictionary()
+  dict := apns.NewAlertDictionary()
   dict.Body = "Alice wants Bob to join in the fun!"
   dict.ActionLocKey = "Play a Game!"
   dict.LocKey = "localized key"
