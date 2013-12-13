@@ -18,13 +18,15 @@ func getPN() *PushNotification {
 }
 
 func TestA(t *testing.T) {
-	mc := NewMultiClient("gateway.sandbox.push.apple.com:2195", "certs/p1-dev-cert.pem", "certs/p1-dev-key.pem")
+	mc := NewClient("gateway.sandbox.push.apple.com:2195", "certs/p1-dev-cert.pem", "certs/p1-dev-key.pem")
 	go mc.Run()
 
 	c := mc.ErrorChannel()
 	go func() {
-		x := <-c
-		log.Println("ErrorChannel", x)
+		for {
+			x := <-c
+			log.Println("ErrorChannel", x)
+		}
 	}()
 
 	for i := 0; i < 3; i++ {
