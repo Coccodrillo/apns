@@ -2,9 +2,14 @@ package apns
 
 import (
 	"crypto/tls"
-	"net"
+	"encoding/binary"
+	"log"
+	//"net"
+	"sync"
 	"time"
 )
+
+// beware, there might be a threading bug in here! (seen if the queue contains pointers to notifications instead of objects) /Victor 20131213
 
 // You'll need to provide your own CertificateFile
 // and KeyFile to send notifications. Ideally, you'll
@@ -12,17 +17,31 @@ import (
 // a location on drive where the certs can be loaded,
 // but if you prefer you can use the CertificateBase64
 // and KeyBase64 fields to store the actual contents.
-type Client struct {
+type MultiClient struct {
 	Gateway           string
 	CertificateFile   string
 	CertificateBase64 string
 	KeyFile           string
 	KeyBase64         string
+
+	connection *tls.Conn
+
+	sentNotifications   []notification
+	queuedNotifications chan notification
+	errorChannel        chan PushNotification
+
+	lock *sync.Mutex
+}
+
+type notification struct {
+	pushNotification PushNotification
+	success          bool
+	sentTime         time.Time
 }
 
 // Constructor. Use this if you want to set cert and key blocks manually.
-func BareClient(gateway, certificateBase64, keyBase64 string) (c *Client) {
-	c = new(Client)
+func BareMultiClient(gateway, certificateBase64, keyBase64 string) (c *MultiClient) {
+	c = newMultiClient()
 	c.Gateway = gateway
 	c.CertificateBase64 = certificateBase64
 	c.KeyBase64 = keyBase64
@@ -30,50 +49,34 @@ func BareClient(gateway, certificateBase64, keyBase64 string) (c *Client) {
 }
 
 // Constructor. Use this if you want to load cert and key blocks from a file.
-func NewClient(gateway, certificateFile, keyFile string) (c *Client) {
-	c = new(Client)
+func NewMultiClient(gateway, certificateFile, keyFile string) (c *MultiClient) {
+	c = newMultiClient()
 	c.Gateway = gateway
 	c.CertificateFile = certificateFile
 	c.KeyFile = keyFile
 	return
 }
 
-// Connects to the APN service and sends your push notification.
-// Remember that if the submission is successful, Apple won't reply.
-func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) {
-	resp = new(PushNotificationResponse)
-
-	payload, err := pn.ToBytes()
-	if err != nil {
-		resp.Success = false
-		resp.Error = err
-		return
-	}
-
-	err = this.ConnectAndWrite(resp, payload)
-	if err != nil {
-		resp.Success = false
-		resp.Error = err
-		return
-	}
-
-	resp.Success = true
-	resp.Error = nil
-
-	return
+func newMultiClient() *MultiClient {
+	c := &MultiClient{}
+	c.sentNotifications = []notification{}
+	c.queuedNotifications = make(chan notification, 10000)
+	c.lock = &sync.Mutex{}
+	c.errorChannel = make(chan PushNotification, 1000)
+	return c
 }
 
-// In lieu of a timeout (which would be available in Go 1.1)
-// we use a timeout channel pattern instead. We start two goroutines,
-// one of which just sleeps for TIMEOUT_SECONDS seconds, while the other
-// waits for a response from the Apple servers.
-//
-// Whichever channel puts data on first is the "winner". As such, it's
-// possible to get a false positive if Apple takes a long time to respond.
-// It's probably not a deal-breaker, but something to be aware of.
-func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
-	var cert tls.Certificate
+func (this *MultiClient) ErrorChannel() chan PushNotification {
+	return this.errorChannel
+}
 
+func (this *MultiClient) connect() error {
+	if this.connection != nil {
+		this.connection.Close()
+	}
+
+	var cert tls.Certificate
+	var err error
 	if len(this.CertificateBase64) == 0 && len(this.KeyBase64) == 0 {
 		// The user did not specify raw block contents, so check the filesystem.
 		cert, err = tls.LoadX509KeyPair(this.CertificateFile, this.KeyFile)
@@ -90,57 +93,147 @@ func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []by
 		Certificates: []tls.Certificate{cert},
 	}
 
-	conn, err := net.Dial("tcp", this.Gateway)
+	tlsConn, err := tls.Dial("tcp", this.Gateway, conf)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-
-	tlsConn := tls.Client(conn, conf)
 	err = tlsConn.Handshake()
 	if err != nil {
 		return err
 	}
-	defer tlsConn.Close()
+	this.connection = tlsConn
 
-	_, err = tlsConn.Write(payload)
-	if err != nil {
-		return err
-	}
-
-	// Create one channel that will serve to handle
-	// timeouts when the notification succeeds.
-	timeoutChannel := make(chan bool, 1)
-	go func() {
-		time.Sleep(time.Second * TIMEOUT_SECONDS)
-		timeoutChannel <- true
-	}()
-
-	// This channel will contain the binary response
-	// from Apple in the event of a failure.
-	responseChannel := make(chan []byte, 1)
-	go func() {
-		buffer := make([]byte, 6, 6)
-		conn.Read(buffer)
-		responseChannel <- buffer
-	}()
-
-	// First one back wins!
-	// The data structure for an APN response is as follows:
-	//
-	// command    -> 1 byte
-	// status     -> 1 byte
-	// identifier -> 4 bytes
-	//
-	// The first byte will always be set to 8.
-	resp = NewPushNotificationResponse()
-	select {
-	case r := <-responseChannel:
-		resp.Success = false
-		resp.AppleResponse = APPLE_PUSH_RESPONSES[r[1]]
-	case <-timeoutChannel:
-		resp.Success = true
-	}
-
+	go this.receiveOne()
 	return nil
+}
+
+func (this *MultiClient) Run() {
+	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
+
+	for {
+		n := <-this.queuedNotifications
+		log.Printf("run %v %v %p", n.pushNotification.Identifier, len(this.queuedNotifications), n)
+		//log.Printf("%p", n)
+		this.sendOne(n)
+		this.cleanSent()
+	}
+}
+
+func (this *MultiClient) Queue(pn *PushNotification) {
+	this.queuedNotifications <- notification{pushNotification: *pn}
+}
+
+func (this *MultiClient) sendOne(n notification) {
+	log.Println("sendOne", n.pushNotification.Identifier)
+	payload, err := n.pushNotification.ToBytes()
+	if err != nil {
+		panic(err)
+	}
+
+	if this.connection == nil {
+		err := this.connect()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+	_, err = this.connection.Write(payload)
+	if err != nil {
+		//if not connected, try to reconnect and rewrite payload
+		log.Println(err)
+
+		err = this.connection.Close()
+		if err != nil {
+			log.Println(err)
+		}
+		err = this.connect()
+		if err != nil {
+			log.Println(err)
+			panic(err)
+		}
+		_, err = this.connection.Write(payload)
+		if err != nil {
+			log.Println(err)
+			panic(err)
+		}
+	}
+	n.sentTime = time.Now()
+	log.Println("sent", n.pushNotification.Identifier)
+	this.lock.Lock()
+	this.sentNotifications = append(this.sentNotifications, n)
+	this.lock.Unlock()
+}
+
+func (this *MultiClient) cleanSent() {
+	log.Println("clean")
+	this.lock.Lock()
+
+	newSentNotifications := []notification{}
+
+	for _, n := range this.sentNotifications {
+		// After 10 sec we assume that we wont get error back from apple about a message
+		if time.Now().Before(n.sentTime.Add(1 * time.Second)) {
+			newSentNotifications = append(newSentNotifications, n)
+			log.Println("uncleaned", n.pushNotification.Identifier)
+
+		} else {
+			log.Println("cleaned", n.pushNotification.Identifier)
+		}
+	}
+	this.sentNotifications = newSentNotifications
+
+	this.lock.Unlock()
+}
+
+func (this *MultiClient) receiveOne() {
+
+	buffer := make([]byte, 6)
+	_, err := this.connection.Read(buffer)
+	if err != nil {
+		log.Println(err)
+		err = this.connection.Close()
+		log.Println(err)
+		return
+	}
+	//time.Sleep(3 * time.Second)
+	this.lock.Lock()
+	{
+		id := int32(binary.BigEndian.Uint32(buffer[2:6]))
+
+		if buffer[1] != 0 {
+			respStr := APPLE_PUSH_RESPONSES[buffer[1]]
+			log.Println("resp", respStr)
+			this.handleBadNotification(id)
+		}
+
+		err = this.connection.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}
+	this.lock.Unlock()
+}
+
+func (this *MultiClient) handleBadNotification(id int32) {
+	log.Println("bad Notification", id)
+	for i, n := range this.sentNotifications {
+		if n.pushNotification.Identifier == id {
+			// requeue all after this item
+			// report failed on error chan
+			// throw all before id away (they are ok)
+
+			select {
+			case this.errorChannel <- n.pushNotification:
+			default:
+			}
+
+			for _, n2 := range this.sentNotifications[i+1:] {
+				log.Println("requeued", n2.pushNotification.Identifier)
+				this.queuedNotifications <- n2
+				//this.extra <- &n2
+			}
+			this.sentNotifications = []notification{}
+			return
+		}
+	}
 }
