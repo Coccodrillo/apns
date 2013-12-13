@@ -1,6 +1,7 @@
 package apns
 
 import (
+	"log"
 	"testing"
 	"time"
 )
@@ -20,9 +21,15 @@ func TestA(t *testing.T) {
 	mc := NewMultiClient("gateway.sandbox.push.apple.com:2195", "certs/p1-dev-cert.pem", "certs/p1-dev-key.pem")
 	go mc.Run()
 
-	mc.Queue(getPN())
-	mc.Queue(getPN())
-	mc.Queue(getPN())
+	c := mc.ErrorChannel()
+	go func() {
+		x := <-c
+		log.Println("ErrorChannel", x)
+	}()
+
+	for i := 0; i < 3; i++ {
+		mc.Queue(getPN())
+	}
 	//mc.Queue(getPN())
 	time.Sleep(time.Second * 20)
 }

@@ -4,10 +4,12 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"log"
-	"net"
+	//"net"
 	"sync"
 	"time"
 )
+
+// beware, there might be a threading bug in here! (seen if the queue contains pointers to notifications instead of objects) /Victor 20131213
 
 // You'll need to provide your own CertificateFile
 // and KeyFile to send notifications. Ideally, you'll
@@ -25,8 +27,8 @@ type MultiClient struct {
 	connection *tls.Conn
 
 	sentNotifications   []notification
-	queuedNotifications chan *notification
-	extra               chan *notification
+	queuedNotifications chan notification
+	errorChannel        chan PushNotification
 
 	lock *sync.Mutex
 }
@@ -58,9 +60,14 @@ func NewMultiClient(gateway, certificateFile, keyFile string) (c *MultiClient) {
 func newMultiClient() *MultiClient {
 	c := &MultiClient{}
 	c.sentNotifications = []notification{}
-	c.queuedNotifications = make(chan *notification, 10)
+	c.queuedNotifications = make(chan notification, 10000)
 	c.lock = &sync.Mutex{}
+	c.errorChannel = make(chan PushNotification, 1000)
 	return c
+}
+
+func (this *MultiClient) ErrorChannel() chan PushNotification {
+	return this.errorChannel
 }
 
 func (this *MultiClient) connect() error {
@@ -101,27 +108,22 @@ func (this *MultiClient) connect() error {
 }
 
 func (this *MultiClient) Run() {
-	log.SetFlags(log.Ltime | log.Lshortfile)
-
-	go func() {
-		for {
-			n := <-this.extra
-			log.Println("extra", n.pushNotification.Identifier)
-		}
-	}()
+	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
 
 	for {
 		n := <-this.queuedNotifications
+		log.Printf("run %v %v %p", n.pushNotification.Identifier, len(this.queuedNotifications), n)
+		//log.Printf("%p", n)
 		this.sendOne(n)
-		//this.cleanSent()
+		this.cleanSent()
 	}
 }
 
 func (this *MultiClient) Queue(pn *PushNotification) {
-	this.queuedNotifications <- &notification{pushNotification: *pn}
+	this.queuedNotifications <- notification{pushNotification: *pn}
 }
 
-func (this *MultiClient) sendOne(n *notification) {
+func (this *MultiClient) sendOne(n notification) {
 	log.Println("sendOne", n.pushNotification.Identifier)
 	payload, err := n.pushNotification.ToBytes()
 	if err != nil {
@@ -135,7 +137,6 @@ func (this *MultiClient) sendOne(n *notification) {
 			return
 		}
 	}
-	log.Println("write", n.pushNotification.Identifier)
 	_, err = this.connection.Write(payload)
 	if err != nil {
 		//if not connected, try to reconnect and rewrite payload
@@ -157,9 +158,9 @@ func (this *MultiClient) sendOne(n *notification) {
 		}
 	}
 	n.sentTime = time.Now()
-	log.Println("wrote", n.pushNotification.Identifier)
+	log.Println("sent", n.pushNotification.Identifier)
 	this.lock.Lock()
-	this.sentNotifications = append(this.sentNotifications, *n)
+	this.sentNotifications = append(this.sentNotifications, n)
 	this.lock.Unlock()
 }
 
@@ -194,7 +195,7 @@ func (this *MultiClient) receiveOne() {
 		log.Println(err)
 		return
 	}
-	time.Sleep(3 * time.Second)
+	//time.Sleep(3 * time.Second)
 	this.lock.Lock()
 	{
 		id := int32(binary.BigEndian.Uint32(buffer[2:6]))
@@ -218,12 +219,18 @@ func (this *MultiClient) handleBadNotification(id int32) {
 	for i, n := range this.sentNotifications {
 		if n.pushNotification.Identifier == id {
 			// requeue all after this item
-			// throw id away
+			// report failed on error chan
 			// throw all before id away (they are ok)
+
+			select {
+			case this.errorChannel <- n.pushNotification:
+			default:
+			}
+
 			for _, n2 := range this.sentNotifications[i+1:] {
 				log.Println("requeued", n2.pushNotification.Identifier)
-				this.queuedNotifications <- &n2
-				this.extra <- &n2
+				this.queuedNotifications <- n2
+				//this.extra <- &n2
 			}
 			this.sentNotifications = []notification{}
 			return
