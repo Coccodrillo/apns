@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+func init() {
+	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
+}
+
 func getPN() *PushNotification {
 	pn := NewPushNotification()
 
@@ -19,12 +23,15 @@ func getPN() *PushNotification {
 
 func TestA(t *testing.T) {
 	mc := NewClient("gateway.sandbox.push.apple.com:2195", "certs/p1-dev-cert.pem", "certs/p1-dev-key.pem")
-	go mc.Run()
-
-	c := mc.ErrorChannel()
 	go func() {
 		for {
-			x := <-c
+			err := mc.Run()
+			log.Println(err)
+		}
+	}()
+	go func() {
+		for {
+			x := <-mc.FailedNotifications()
 			log.Println("ErrorChannel", x)
 		}
 	}()
