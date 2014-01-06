@@ -214,7 +214,7 @@ func (this *Client) receiveOne() {
 	//time.Sleep(3 * time.Second)
 	this.lock.Lock()
 	{
-		id := int32(binary.BigEndian.Uint32(buffer[2:6]))
+		id := binary.BigEndian.Uint32(buffer[2:6])
 
 		if buffer[1] != 0 {
 			this.handleBadNotification(id, buffer[1])
@@ -228,7 +228,7 @@ func (this *Client) receiveOne() {
 	this.lock.Unlock()
 }
 
-func (this *Client) handleBadNotification(id int32, responseCode uint8) {
+func (this *Client) handleBadNotification(id uint32, responseCode uint8) {
 	//log.Println("bad Notification", id)
 	for i, n := range this.sentNotifications {
 		if n.pushNotification.Identifier == id {

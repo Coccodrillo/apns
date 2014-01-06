@@ -22,6 +22,9 @@ var APPLE_PUSH_RESPONSES = map[uint8]string{
 	255: "UNKNOWN",
 }
 
+// PushNotificationResponse contains the result of a PushNotification send.
+// It will either contain a response string from Apple or a error such as unable
+// to open connection.
 type PushNotificationResponse struct {
 	Success          bool
 	AppleResponse    *string

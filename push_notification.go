@@ -6,9 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"math/rand"
 	"strconv"
-	"time"
 )
 
 // Push commands always start with command value 1.
@@ -17,10 +15,7 @@ const PUSH_COMMAND_VALUE = 1
 // Your total notification payload cannot exceed 256 bytes.
 const MAX_PAYLOAD_SIZE_BYTES = 256
 
-// Every push notification gets a pseudo-unique identifier;
-// this establishes the upper boundary for it. Apple will return
-// this identifier if there is an issue sending your notification.
-const IDENTIFIER_UBOUND = 9999
+var lastUsedNotificationIdentifier uint32
 
 // Alert is an interface here because it supports either a string
 // or a dictionary, represented within by an AlertDictionary struct.
@@ -53,7 +48,7 @@ func NewAlertDictionary() *AlertDictionary {
 // The PushNotification is the wrapper for the Payload.
 // The length fields are computed in ToBytes() and aren't represented here.
 type PushNotification struct {
-	Identifier  int32
+	Identifier  uint32
 	Expiry      uint32
 	DeviceToken string
 	payload     map[string]interface{}
@@ -63,7 +58,8 @@ type PushNotification struct {
 func NewPushNotification() (pn *PushNotification) {
 	pn = new(PushNotification)
 	pn.payload = make(map[string]interface{})
-	pn.Identifier = rand.New(rand.NewSource(time.Now().UnixNano())).Int31n(IDENTIFIER_UBOUND)
+	lastUsedNotificationIdentifier++
+	pn.Identifier = lastUsedNotificationIdentifier
 	return
 }
 
