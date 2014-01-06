@@ -2,6 +2,14 @@
 
 Utilities for Apple Push Notification and Feedback Services.
 
+Forked from github.com/anachronistic/apns with the send logic reworked to 
+reuse a single connections between sends to improve performance. Several 
+breaking API changes has been made to allow this change.
+
+
+Documentation below not yet updated to include new changes.
+
+
 ## Installation
 
 `go get github.com/anachronistic/apns`
@@ -12,6 +20,7 @@ Utilities for Apple Push Notification and Feedback Services.
 - [Information on the APN JSON payloads](http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html)
 - [Information on the APN binary protocols](http://developer.apple.com/library/ios/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html)
 - [Information on APN troubleshooting](http://developer.apple.com/library/ios/#technotes/tn2265/_index.html)
+- [Information on connection reuse](http://redth.info/the-problem-with-apples-push-notification-ser/)
 
 ## Usage
 
