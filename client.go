@@ -3,7 +3,7 @@ package apns
 import (
 	"crypto/tls"
 	"encoding/binary"
-	"log"
+	//"log"
 	"sync"
 	"time"
 )
@@ -27,7 +27,7 @@ type Client struct {
 
 	sentNotifications   []notification
 	queuedNotifications chan notification
-	errorChannel        chan PushNotification
+	errorChannel        chan *PushNotificationResponse
 
 	lock *sync.Mutex
 }
@@ -61,14 +61,14 @@ func newClient() *Client {
 	c.sentNotifications = []notification{}
 	c.queuedNotifications = make(chan notification, 10000)
 	c.lock = &sync.Mutex{}
-	c.errorChannel = make(chan PushNotification, 1000)
+	c.errorChannel = make(chan *PushNotificationResponse, 1000)
 	return c
 }
 
 // FailedNotifications returns a channel on which failed notifications will be returned.
 // At most 1000 failed notifications can be kept here, if more notifications fails those
 // notifications will be dropped silently.
-func (this *Client) FailedNotifications() chan PushNotification {
+func (this *Client) FailedNotifications() chan *PushNotificationResponse {
 	return this.errorChannel
 }
 
@@ -76,11 +76,13 @@ func (this *Client) FailedNotifications() chan PushNotification {
 func (this *Client) Run() error {
 	for {
 		n := <-this.queuedNotifications
-		log.Printf("run %v %v %p", n.pushNotification.Identifier, len(this.queuedNotifications), n)
+		//log.Printf("run %v %v %p", n.pushNotification.Identifier, len(this.queuedNotifications), n)
 		//log.Printf("%p", n)
 		err := this.sendOne(n)
 		if err != nil {
-			this.reportFailed(&n.pushNotification)
+			resp := NewPushNotificationResponse(&n.pushNotification)
+			resp.Error = &err
+			this.reportFailed(resp)
 			return err
 		}
 		this.cleanSent()
@@ -92,10 +94,10 @@ func (this *Client) Queue(pn *PushNotification) {
 	this.queuedNotifications <- notification{pushNotification: *pn}
 }
 
-func (this *Client) reportFailed(pn *PushNotification) {
+func (this *Client) reportFailed(pn *PushNotificationResponse) {
 	// Never block to make sure we continue to send notifications even if no one is reading the failed ones.
 	select {
-	case this.errorChannel <- *pn:
+	case this.errorChannel <- pn:
 	default:
 	}
 }
@@ -138,7 +140,7 @@ func (this *Client) connect() error {
 }
 
 func (this *Client) sendOne(n notification) error {
-	log.Println("sendOne", n.pushNotification.Identifier)
+	//log.Println("sendOne", n.pushNotification.Identifier)
 	payload, err := n.pushNotification.ToBytes()
 	if err != nil {
 		return err
@@ -147,32 +149,32 @@ func (this *Client) sendOne(n notification) error {
 	if this.connection == nil {
 		err := this.connect()
 		if err != nil {
-			log.Println(err)
+			//log.Println(err)
 			return err
 		}
 	}
 	_, err = this.connection.Write(payload)
 	if err != nil {
 		//if not connected, try to reconnect and rewrite payload
-		log.Println(err)
+		//log.Println(err)
 
 		err = this.connection.Close()
 		if err != nil {
-			log.Println(err)
+			//log.Println(err)
 		}
 		err = this.connect()
 		if err != nil {
-			log.Println(err)
+			//log.Println(err)
 			return err
 		}
 		_, err = this.connection.Write(payload)
 		if err != nil {
-			log.Println(err)
+			//log.Println(err)
 			return err
 		}
 	}
 	n.sentTime = time.Now()
-	log.Println("sent", n.pushNotification.Identifier)
+	//log.Println("sent", n.pushNotification.Identifier)
 	this.lock.Lock()
 	this.sentNotifications = append(this.sentNotifications, n)
 	this.lock.Unlock()
@@ -186,13 +188,12 @@ func (this *Client) cleanSent() {
 	newSentNotifications := []notification{}
 
 	for _, n := range this.sentNotifications {
-		// After 10 sec we assume that we wont get error back from apple about a message
-		if time.Now().Before(n.sentTime.Add(1 * time.Second)) {
+		// After TIMEOUT_SECONDS we assume that we wont get error back from apple about a message
+		if time.Now().Before(n.sentTime.Add(TIMEOUT_SECONDS * time.Second)) {
 			newSentNotifications = append(newSentNotifications, n)
-			log.Println("uncleaned", n.pushNotification.Identifier)
-
+			//log.Println("uncleaned", n.pushNotification.Identifier)
 		} else {
-			log.Println("cleaned", n.pushNotification.Identifier)
+			//log.Println("cleaned", n.pushNotification.Identifier)
 		}
 	}
 	this.sentNotifications = newSentNotifications
@@ -205,9 +206,9 @@ func (this *Client) receiveOne() {
 	buffer := make([]byte, 6)
 	_, err := this.connection.Read(buffer)
 	if err != nil {
-		log.Println(err)
+		//log.Println(err)
 		err = this.connection.Close()
-		log.Println(err)
+		//log.Println(err)
 		return
 	}
 	//time.Sleep(3 * time.Second)
@@ -216,31 +217,31 @@ func (this *Client) receiveOne() {
 		id := int32(binary.BigEndian.Uint32(buffer[2:6]))
 
 		if buffer[1] != 0 {
-			respStr := APPLE_PUSH_RESPONSES[buffer[1]]
-			log.Println("resp", respStr)
-			this.handleBadNotification(id)
+			this.handleBadNotification(id, buffer[1])
 		}
 
 		err = this.connection.Close()
 		if err != nil {
-			log.Println(err)
+			//log.Println(err)
 		}
 	}
 	this.lock.Unlock()
 }
 
-func (this *Client) handleBadNotification(id int32) {
-	log.Println("bad Notification", id)
+func (this *Client) handleBadNotification(id int32, responseCode uint8) {
+	//log.Println("bad Notification", id)
 	for i, n := range this.sentNotifications {
 		if n.pushNotification.Identifier == id {
 			// requeue all after this item
 			// report failed on error chan
 			// throw all before id away (they are ok)
-
-			this.reportFailed(&n.pushNotification)
+			resp := NewPushNotificationResponse(&n.pushNotification)
+			appleResponse := APPLE_PUSH_RESPONSES[responseCode]
+			resp.AppleResponse = &appleResponse
+			this.reportFailed(resp)
 
 			for _, n2 := range this.sentNotifications[i+1:] {
-				log.Println("requeued", n2.pushNotification.Identifier)
+				//log.Println("requeued", n2.pushNotification.Identifier)
 				this.queuedNotifications <- n2
 			}
 			this.sentNotifications = []notification{}

@@ -23,14 +23,16 @@ var APPLE_PUSH_RESPONSES = map[uint8]string{
 }
 
 type PushNotificationResponse struct {
-	Success       bool
-	AppleResponse string
-	Error         error
+	Success          bool
+	AppleResponse    *string
+	Error            *error
+	PushNotification *PushNotification
 }
 
 // Constructor.
-func NewPushNotificationResponse() (resp *PushNotificationResponse) {
+func NewPushNotificationResponse(pn *PushNotification) (resp *PushNotificationResponse) {
 	resp = new(PushNotificationResponse)
 	resp.Success = false
+	resp.PushNotification = pn
 	return
 }

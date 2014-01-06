@@ -6,10 +6,6 @@ import (
 	"time"
 )
 
-func init() {
-	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
-}
-
 func getPN() *PushNotification {
 	pn := NewPushNotification()
 
@@ -32,7 +28,7 @@ func TestA(t *testing.T) {
 	go func() {
 		for {
 			x := <-mc.FailedNotifications()
-			log.Println("ErrorChannel", x)
+			log.Println("ErrorChannel", *x.AppleResponse)
 		}
 	}()
 
