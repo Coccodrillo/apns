@@ -9,16 +9,9 @@ import (
 func mockPayload() (payload *Payload) {
 	payload = NewPayload()
 	payload.Alert = "You have mail!"
-	payload.Badge = 42
+	badge := 42
+	payload.Badge = &badge
 	payload.Sound = "bingbong.aiff"
-	return
-}
-
-// See the commentary in push_notification.go for information
-// on why we're testing a badge of value 0.
-func mockZeroBadgePayload() (payload *Payload) {
-	payload = mockPayload()
-	payload.Badge = 0
 	return
 }
 
@@ -95,12 +88,34 @@ func TestCustomParameters(t *testing.T) {
 	}
 }
 
-func TestZeroBadgeChangesToNegativeOne(t *testing.T) {
-	payload := mockZeroBadgePayload()
+func TestZeroBadge(t *testing.T) {
+	payload := NewPayload()
+	badge := 0
+	payload.Badge = &badge
 	pn := NewPushNotification()
 	pn.AddPayload(payload)
 
-	if payload.Badge != -1 {
-		t.Error("expected 0 badge value to be converted to -1; got", payload.Badge)
+	json, err := pn.PayloadString()
+	if err != nil {
+		t.Error(err)
+	}
+	expected := `{"aps":{"badge":0}}`
+	if json != expected {
+		t.Errorf("Expected json %v but got %v", expected, json)
+	}
+}
+
+func TestNilBadge(t *testing.T) {
+	payload := NewPayload()
+	pn := NewPushNotification()
+	pn.AddPayload(payload)
+
+	json, err := pn.PayloadString()
+	if err != nil {
+		t.Error(err)
+	}
+	expected := `{"aps":{}}`
+	if json != expected {
+		t.Errorf("Expected json %v but got %v", expected, json)
 	}
 }

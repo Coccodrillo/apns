@@ -21,7 +21,7 @@ var lastUsedNotificationIdentifier uint32
 // or a dictionary, represented within by an AlertDictionary struct.
 type Payload struct {
 	Alert interface{} `json:"alert,omitempty"`
-	Badge int         `json:"badge,omitempty"`
+	Badge *int        `json:"badge,omitempty"`
 	Sound string      `json:"sound,omitempty"`
 }
 
@@ -64,22 +64,6 @@ func NewPushNotification() (pn *PushNotification) {
 }
 
 func (this *PushNotification) AddPayload(p *Payload) {
-	// This deserves some explanation.
-	//
-	// Setting an exported field of type int to 0
-	// triggers the omitempty behavior if you've set it.
-	// Since the badge is optional, we should omit it if
-	// it's not set. However, we want to include it if the
-	// value is 0, so there's a hack in push_notification.go
-	// that exploits the fact that Apple treats -1 for a
-	// badge value as though it were 0 (i.e. it clears the
-	// badge but doesn't stop the notification from going
-	// through successfully.)
-	//
-	// Still a hack though :)
-	if p.Badge == 0 {
-		p.Badge = -1
-	}
 	this.Set("aps", p)
 }
 
