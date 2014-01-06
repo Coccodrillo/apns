@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-// beware, there might be a threading bug in here! (seen if the queue contains pointers to notifications instead of objects) /Victor 20131213
-
 // You'll need to provide your own CertificateFile
 // and KeyFile to send notifications. Ideally, you'll
 // just set the CertificateFile and KeyFile fields to
@@ -24,7 +22,8 @@ type Client struct {
 
 	connection *tls.Conn
 
-	sentNotifications   []notification
+	sentNotifications []notification
+	// beware, if the notificaiton queue stores pointers instead of the full object a threading bug might occur.
 	queuedNotifications chan notification
 	errorChannel        chan *PushNotificationResponse
 
