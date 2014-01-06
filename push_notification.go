@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"sync/atomic"
 )
 
 // Push commands always start with command value 1.
@@ -58,8 +59,7 @@ type PushNotification struct {
 func NewPushNotification() (pn *PushNotification) {
 	pn = new(PushNotification)
 	pn.payload = make(map[string]interface{})
-	lastUsedNotificationIdentifier++
-	pn.Identifier = lastUsedNotificationIdentifier
+	pn.Identifier = atomic.AddUint32(&lastUsedNotificationIdentifier, 1)
 	return
 }
 
