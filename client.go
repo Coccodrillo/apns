@@ -66,7 +66,7 @@ func newClient() *Client {
 // FailedNotifications returns a channel on which failed notifications will be returned.
 // At most 1000 failed notifications can be kept here, if more notifications fails those
 // notifications will be dropped silently.
-func (this *Client) FailedNotifications() chan *PushNotificationResponse {
+func (this *Client) FailedNotifications() <-chan *PushNotificationResponse {
 	return this.errorChannel
 }
 

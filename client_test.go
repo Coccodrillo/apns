@@ -1,8 +1,8 @@
 package apns
 
 import (
+	"fmt"
 	"log"
-	"testing"
 	"time"
 )
 
@@ -11,13 +11,14 @@ func getPN() *PushNotification {
 
 	pn.DeviceToken = "af7685af756476543987af"
 
-	payLoad := NewPayload()
-	payLoad.Sound = "default"
-	pn.AddPayload(payLoad)
+	payload := NewPayload()
+	payload.Sound = "default"
+	payload.Alert = "hi!"
+	pn.AddPayload(payload)
 	return pn
 }
 
-func TestA(t *testing.T) {
+func Example() {
 	mc := NewClient("gateway.sandbox.push.apple.com:2195", "certs/p1-dev-cert.pem", "certs/p1-dev-key.pem")
 	go func() {
 		for {
@@ -28,13 +29,21 @@ func TestA(t *testing.T) {
 	go func() {
 		for {
 			x := <-mc.FailedNotifications()
-			log.Println("ErrorChannel", *x.AppleResponse)
+			var msg string
+			if x.AppleResponse != nil {
+				msg = *x.AppleResponse
+			} else {
+				msg = (*x.Error).Error()
+			}
+			log.Println("ErrorChannel received id", x.PushNotification.Identifier, msg)
 		}
 	}()
-
 	for i := 0; i < 3; i++ {
-		mc.Queue(getPN())
+		p := getPN()
+		mc.Queue(p)
+		log.Println("Queued id", p.Identifier)
 	}
-	//mc.Queue(getPN())
-	time.Sleep(time.Second * 20)
+	time.Sleep(time.Second * 60)
+	fmt.Println("done")
+	// Output: done
 }
