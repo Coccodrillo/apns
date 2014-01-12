@@ -9,7 +9,7 @@ import (
 // Abstracts a connection to a push notification gateway.
 type Connection struct {
 	gateway        string
-	timeoutSeconds int8
+	timeoutSeconds uint8
 
 	tlsCertificate tls.Certificate
 	tcpConnection  net.Conn
@@ -30,7 +30,7 @@ func NewConnection(gateway string) (c *Connection) {
 
 // Sets the number of seconds to wait for the gateway to respond
 // after sending a push notification.
-func (connection *Connection) SetTimeoutSeconds(seconds int8) {
+func (connection *Connection) SetTimeoutSeconds(seconds uint8) {
 	connection.timeoutSeconds = seconds
 }
 
