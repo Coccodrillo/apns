@@ -161,13 +161,25 @@ func main() {
   pn.DeviceToken = "YOUR_DEVICE_TOKEN_HERE"
   pn.AddPayload(payload)
 
-  client := apns.NewClient("gateway.sandbox.push.apple.com:2195", "YOUR_CERT_PEM", "YOUR_KEY_NOENC_PEM")
-  resp := client.Send(pn)
+  conn := apns.NewConnection("gateway.sandbox.push.apple.com:2195")
+  conn.SetTimeoutSeconds(5)
 
-  alert, _ := pn.PayloadString()
-  fmt.Println("  Alert:", alert)
-  fmt.Println("Success:", resp.Success)
-  fmt.Println("  Error:", resp.Error)
+  // You can pass either base64 strings or a path to your certificate files.
+  // The final parameter, rawBytes (set to false here), dictates whether the
+  // first two string parameters represent the base64 data or paths.
+  conn.CreateCertificate("YOUR_CERT_PEM", "YOUR_KEY_NOENC_PEM", false)
+
+  conn.Connect()
+  defer conn.Disconnect()
+
+  for {
+    resp := conn.Send(pn)
+
+    alert, _ := pn.PayloadString()
+    fmt.Println(" Alert:", alert)
+    fmt.Println("Success:", resp.Success)
+    fmt.Println(" Error:", resp.Error)
+  }
 }
 ```
 
