@@ -82,7 +82,7 @@ func (connection *Connection) Connect() (err error) {
 // so a timeout channel pattern is used. Two goroutines are started: one
 // waits for connection.timeoutSeconds and the other listens for a response from Apple.
 // Whichever returns first is the winner, so some false-positives are possible
-// if the gateway takes an excessively long amoutn of time to reply.
+// if the gateway takes an excessively long amount of time to reply.
 //
 // Returns a PushNotificationResponse indicating success / failure and what
 // error occurred, if any.
