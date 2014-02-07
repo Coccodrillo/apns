@@ -28,6 +28,9 @@ type Client struct {
 	errorChannel        chan *PushNotificationResponse
 
 	lock *sync.Mutex
+
+	retryCount        int
+	retryWaitDuration time.Duration
 }
 
 type notification struct {
@@ -60,6 +63,8 @@ func newClient() *Client {
 	c.queuedNotifications = make(chan notification, 10000)
 	c.lock = &sync.Mutex{}
 	c.errorChannel = make(chan *PushNotificationResponse, 1000)
+	c.retryCount = 10
+	c.retryWaitDuration = time.Second / 2
 	return c
 }
 
@@ -72,6 +77,11 @@ func (this *Client) FailedNotifications() <-chan *PushNotificationResponse {
 
 // Run sends queued notifications.
 func (this *Client) Run() error {
+	err := this.connect()
+	if err != nil {
+		return err
+	}
+
 	for {
 		n := <-this.queuedNotifications
 		err := this.sendOne(n)
@@ -141,31 +151,35 @@ func (this *Client) sendOne(n notification) error {
 		return err
 	}
 
-	if this.connection == nil {
-		err := this.connect()
-		if err != nil {
-			return err
-		}
-	}
-	_, err = this.connection.Write(payload)
+	err = this.writePayload(payload)
+
 	if err != nil {
-		//if connection failed, try to reconnect and rewrite payload
-		err = this.connection.Close()
-		if err != nil {
-		}
-		err = this.connect()
-		if err != nil {
-			return err
-		}
-		_, err = this.connection.Write(payload)
-		if err != nil {
-			return err
-		}
+		return err
 	}
+
 	n.sentTime = time.Now()
 	this.lock.Lock()
 	this.sentNotifications = append(this.sentNotifications, n)
 	this.lock.Unlock()
+	return nil
+}
+
+func (this *Client) writePayload(payload []byte) error {
+	return this.writePayloadWithRetries(payload, this.retryCount)
+}
+
+func (this *Client) writePayloadWithRetries(payload []byte, retriesLeft int) error {
+	_, err := this.connection.Write(payload)
+	if err != nil {
+		if retriesLeft == 0 {
+			return err
+		}
+		this.connection.Close()
+		_ = this.connect()
+		time.Sleep(this.retryWaitDuration)
+
+		return this.writePayloadWithRetries(payload, retriesLeft-1)
+	}
 	return nil
 }
 
