@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"net"
 	"time"
 )
@@ -60,7 +62,7 @@ func (this *Client) ListenForFeedback() (err error) {
 	deviceToken := make([]byte, 32, 32)
 
 	for {
-		_, err := conn.Read(buffer)
+		_, err := tlsConn.Read(buffer)
 		if err != nil {
 			ShutdownChannel <- true
 			break
@@ -72,7 +74,10 @@ func (this *Client) ListenForFeedback() (err error) {
 		binary.Read(r, binary.BigEndian, &resp.Timestamp)
 		binary.Read(r, binary.BigEndian, &tokenLength)
 		binary.Read(r, binary.BigEndian, &deviceToken)
-		resp.DeviceToken = string(deviceToken)
+		if tokenLength != 32 {
+			return errors.New("Token length should be equal to 32, but isn't.")
+		}
+		resp.DeviceToken = hex.EncodeToString(deviceToken)
 
 		FeedbackChannel <- resp
 	}
