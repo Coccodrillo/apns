@@ -191,7 +191,7 @@ import (
 func main() {
   fmt.Println("- connecting to check for deactivated tokens (maximum read timeout =", apns.FEEDBACK_TIMEOUT_SECONDS, "seconds)")
 
-  client := apns.NewClient("gateway.sandbox.push.apple.com:2195", "YOUR_CERT_PEM", "YOUR_KEY_NOENC_PEM")
+  client := apns.NewClient("feedback.sandbox.push.apple.com:2196", "YOUR_CERT_PEM", "YOUR_KEY_NOENC_PEM")
   go client.ListenForFeedback()
 
   for {
