@@ -82,9 +82,6 @@ func (this *PushNotification) AddPayload(p *Payload) {
 	// through successfully.)
 	//
 	// Still a hack though :)
-	if p.Badge == 0 {
-		p.Badge = -1
-	}
 	this.Set("aps", p)
 }
 
