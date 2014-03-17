@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Push commands always start with command value 1.
+// Push commands always start with command value 2.
 const PUSH_COMMAND_VALUE = 2
 
 // Your total notification payload cannot exceed 256 bytes.
@@ -72,7 +72,7 @@ type PushNotification struct {
 	Expiry      uint32
 	DeviceToken string
 	payload     map[string]interface{}
-	Priority    int32
+	Priority    uint8
 }
 
 // Constructor. Also initializes the pseudo-random identifier.
