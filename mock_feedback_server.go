@@ -6,15 +6,21 @@ import (
 	"log"
 	"net"
 	"time"
+	"crypto/tls"
 )
 
 // This is a simple stand-in for the Apple feedback service that
 // can be used for testing purposes. Doesn't handle many errors, etc.
 // Just for the sake of having something "live" to hit.
-func StartMockFeedbackServer() {
+func StartMockFeedbackServer(certFile, keyFile string) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		log.Panic(err)
+	}
+	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
 	log.Print("- starting Mock Apple Feedback TCP server at 0.0.0.0:5555")
 
-	srv, _ := net.Listen("tcp", "0.0.0.0:5555")
+	srv, _ := tls.Listen("tcp", "0.0.0.0:5555", &config)
 	for {
 		conn, err := srv.Accept()
 		if err != nil {
