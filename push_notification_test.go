@@ -45,8 +45,8 @@ func TestBasicAlert(t *testing.T) {
 
 	bytes, _ := pn.ToBytes()
 	json, _ := pn.PayloadJSON()
-	if len(bytes) != 82 {
-		t.Error("expected 82 bytes; got", len(bytes))
+	if len(bytes) != 98 {
+		t.Error("expected 98 bytes; got", len(bytes))
 	}
 	if len(json) != 69 {
 		t.Error("expected 69 bytes; got", len(json))
@@ -63,8 +63,8 @@ func TestAlertDictionary(t *testing.T) {
 
 	bytes, _ := pn.ToBytes()
 	json, _ := pn.PayloadJSON()
-	if len(bytes) != 207 {
-		t.Error("expected 207 bytes; got", len(bytes))
+	if len(bytes) != 223 {
+		t.Error("expected 223 bytes; got", len(bytes))
 	}
 	if len(json) != 194 {
 		t.Error("expected 194 bytes; got", len(bytes))
@@ -87,8 +87,8 @@ func TestCustomParameters(t *testing.T) {
 
 	bytes, _ := pn.ToBytes()
 	json, _ := pn.PayloadJSON()
-	if len(bytes) != 94 {
-		t.Error("expected 94 bytes; got", len(bytes))
+	if len(bytes) != 110 {
+		t.Error("expected 110 bytes; got", len(bytes))
 	}
 	if len(json) != 81 {
 		t.Error("expected 81 bytes; got", len(json))
