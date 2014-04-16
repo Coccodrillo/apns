@@ -2,6 +2,7 @@ package apns
 
 import (
 	"crypto/tls"
+	"errors"
 	"net"
 	"time"
 )
@@ -137,9 +138,10 @@ func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []by
 	case r := <-responseChannel:
 		resp.Success = false
 		resp.AppleResponse = APPLE_PUSH_RESPONSES[r[1]]
+		err = errors.New(resp.AppleResponse)
 	case <-timeoutChannel:
 		resp.Success = true
 	}
 
-	return nil
+	return err
 }
