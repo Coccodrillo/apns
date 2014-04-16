@@ -133,7 +133,6 @@ func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []by
 	// identifier -> 4 bytes
 	//
 	// The first byte will always be set to 8.
-	resp = NewPushNotificationResponse()
 	select {
 	case r := <-responseChannel:
 		resp.Success = false
