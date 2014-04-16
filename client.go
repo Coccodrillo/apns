@@ -121,7 +121,7 @@ func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []by
 	responseChannel := make(chan []byte, 1)
 	go func() {
 		buffer := make([]byte, 6, 6)
-		conn.Read(buffer)
+		tlsConn.Read(buffer)
 		responseChannel <- buffer
 	}()
 
