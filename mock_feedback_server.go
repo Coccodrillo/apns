@@ -2,16 +2,17 @@ package apns
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/binary"
 	"log"
 	"net"
 	"time"
-	"crypto/tls"
 )
 
-// This is a simple stand-in for the Apple feedback service that
-// can be used for testing purposes. Doesn't handle many errors, etc.
-// Just for the sake of having something "live" to hit.
+// StartMockFeedbackServer spins up a simple stand-in for the Apple
+// feedback service that can be used for testing purposes. Doesn't
+// handle many errors, etc. Just for the sake of having something "live"
+// to hit.
 func StartMockFeedbackServer(certFile, keyFile string) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {

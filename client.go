@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+// Client contains the fields necessary to communicate
+// with Apple, such as the gateway to use and your
+// certificate contents.
+//
 // You'll need to provide your own CertificateFile
 // and KeyFile to send notifications. Ideally, you'll
 // just set the CertificateFile and KeyFile fields to
@@ -21,7 +25,8 @@ type Client struct {
 	KeyBase64         string
 }
 
-// Constructor. Use this if you want to set cert and key blocks manually.
+// BareClient can be used to set the contents of your
+// certificate and key blocks manually.
 func BareClient(gateway, certificateBase64, keyBase64 string) (c *Client) {
 	c = new(Client)
 	c.Gateway = gateway
@@ -30,7 +35,8 @@ func BareClient(gateway, certificateBase64, keyBase64 string) (c *Client) {
 	return
 }
 
-// Constructor. Use this if you want to load cert and key blocks from a file.
+// NewClient assumes you'll be passing in paths that
+// point to your certificate and key.
 func NewClient(gateway, certificateFile, keyFile string) (c *Client) {
 	c = new(Client)
 	c.Gateway = gateway
@@ -39,9 +45,9 @@ func NewClient(gateway, certificateFile, keyFile string) (c *Client) {
 	return
 }
 
-// Connects to the APN service and sends your push notification.
+// Send connects to the APN service and sends your push notification.
 // Remember that if the submission is successful, Apple won't reply.
-func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) {
+func (client *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) {
 	resp = new(PushNotificationResponse)
 
 	payload, err := pn.ToBytes()
@@ -51,7 +57,7 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 		return
 	}
 
-	err = this.ConnectAndWrite(resp, payload)
+	err = client.ConnectAndWrite(resp, payload)
 	if err != nil {
 		resp.Success = false
 		resp.Error = err
@@ -64,23 +70,26 @@ func (this *Client) Send(pn *PushNotification) (resp *PushNotificationResponse) 
 	return
 }
 
+// ConnectAndWrite establishes the connection to Apple and handles the
+// transmission of your push notification, as well as waiting for a reply.
+//
 // In lieu of a timeout (which would be available in Go 1.1)
 // we use a timeout channel pattern instead. We start two goroutines,
-// one of which just sleeps for TIMEOUT_SECONDS seconds, while the other
+// one of which just sleeps for TimeoutSeconds seconds, while the other
 // waits for a response from the Apple servers.
 //
 // Whichever channel puts data on first is the "winner". As such, it's
 // possible to get a false positive if Apple takes a long time to respond.
 // It's probably not a deal-breaker, but something to be aware of.
-func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
+func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
 	var cert tls.Certificate
 
-	if len(this.CertificateBase64) == 0 && len(this.KeyBase64) == 0 {
+	if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
 		// The user did not specify raw block contents, so check the filesystem.
-		cert, err = tls.LoadX509KeyPair(this.CertificateFile, this.KeyFile)
+		cert, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
 	} else {
 		// The user provided the raw block contents, so use that.
-		cert, err = tls.X509KeyPair([]byte(this.CertificateBase64), []byte(this.KeyBase64))
+		cert, err = tls.X509KeyPair([]byte(client.CertificateBase64), []byte(client.KeyBase64))
 	}
 
 	if err != nil {
@@ -91,7 +100,7 @@ func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []by
 		Certificates: []tls.Certificate{cert},
 	}
 
-	conn, err := net.Dial("tcp", this.Gateway)
+	conn, err := net.Dial("tcp", client.Gateway)
 	if err != nil {
 		return err
 	}
@@ -113,7 +122,7 @@ func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []by
 	// timeouts when the notification succeeds.
 	timeoutChannel := make(chan bool, 1)
 	go func() {
-		time.Sleep(time.Second * TIMEOUT_SECONDS)
+		time.Sleep(time.Second * TimeoutSeconds)
 		timeoutChannel <- true
 	}()
 
@@ -137,7 +146,7 @@ func (this *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []by
 	select {
 	case r := <-responseChannel:
 		resp.Success = false
-		resp.AppleResponse = APPLE_PUSH_RESPONSES[r[1]]
+		resp.AppleResponse = ApplePushResponses[r[1]]
 		err = errors.New(resp.AppleResponse)
 	case <-timeoutChannel:
 		resp.Success = true
