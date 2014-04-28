@@ -2,6 +2,8 @@
 
 Utilities for Apple Push Notification and Feedback Services.
 
+[![GoDoc](https://godoc.org/github.com/anachronistic/apns?status.png)](https://godoc.org/github.com/anachronistic/apns)
+
 ## Installation
 
 `go get github.com/anachronistic/apns`
