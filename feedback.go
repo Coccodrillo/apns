@@ -39,7 +39,16 @@ func NewFeedbackResponse() (resp *FeedbackResponse) {
 // not be sent to in the future; Apple *does* monitor that
 // you respect this so you should be checking it ;)
 func (client *Client) ListenForFeedback() (err error) {
-	cert, err := tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
+	var cert tls.Certificate
+
+	if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
+		// The user did not specify raw block contents, so check the filesystem.
+		cert, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
+	} else {
+		// The user provided the raw block contents, so use that.
+		cert, err = tls.X509KeyPair([]byte(client.CertificateBase64), []byte(client.KeyBase64))
+	}
+
 	if err != nil {
 		return err
 	}
