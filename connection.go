@@ -102,7 +102,7 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 			if timeNextNotification {
 				//Is there a cleaner way of doing this?
 				go func(pn PushNotification) {
-					<-time.After(TimeoutSeconds)
+					<-time.After(TimeoutSeconds * time.Second)
 					successResp := newResponse()
 					successResp.Identifier = pn.Identifier
 					responses <- *successResp
