@@ -9,7 +9,6 @@ import (
 
 var ResponseQueueSize = 10000
 var SentBufferSize = 10000
-var TimeoutSeconds = 5 * time.Second
 
 //a Connection represents a single connection to APNS.
 type Connection struct {
