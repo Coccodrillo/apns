@@ -9,7 +9,6 @@ package apns
 var (
 	APPLE_PUSH_RESPONSES     = ApplePushResponses
 	FEEDBACK_TIMEOUT_SECONDS = FeedbackTimeoutSeconds
-	IDENTIFIER_UBOUND        = IdentifierUbound
 	MAX_PAYLOAD_SIZE_BYTES   = MaxPayloadSizeBytes
 	PUSH_COMMAND_VALUE       = PushCommandValue
 	TIMEOUT_SECONDS          = TimeoutSeconds
