@@ -7,10 +7,13 @@ import (
 	"time"
 )
 
+//ResponseQueueSize indicates how many APNS responses may be buffered.
 var ResponseQueueSize = 10000
+
+//SentBufferSize is the maximum number of sent notifications which may be buffered.
 var SentBufferSize = 10000
 
-//a Connection represents a single connection to APNS.
+//Connection represents a single connection to APNS.
 type Connection struct {
 	client Client
 	conn   tls.Conn
@@ -18,6 +21,7 @@ type Connection struct {
 	errors chan *BadPushNotification
 }
 
+//Response is a reply from APNS - see apns.ApplePushResponses.
 type Response struct {
 	Status     uint8
 	Identifier uint32
@@ -27,21 +31,25 @@ func newResponse() *Response {
 	return new(Response)
 }
 
+//BadPushNotification represents a notification which APNS didn't like.
 type BadPushNotification struct {
 	PushNotification
 	Status uint8
 }
 
+//Enqueue adds a push notification to the end of the "sending" queue.
 func (conn *Connection) Enqueue(pn *PushNotification) {
 	go func(pn *PushNotification) {
 		conn.queue <- *pn
 	}(pn)
 }
 
+//Errors gives you a channel of the push notifications Apple rejected.
 func (conn *Connection) Errors() (errors <-chan *BadPushNotification) {
 	return conn.errors
 }
 
+//Start initiates a connection to APNS and asnchronously sends notifications which have been queued.
 func (conn *Connection) Start() error {
 	//Connect to APNS. The reason this is here as well as in sender is that this probably catches any unavoidable errors in a synchronous fashion, while in sender it can reconnect after temporary errors (which should work most of the time.)
 	//Start sender goroutine
@@ -54,6 +62,7 @@ func (conn *Connection) Start() error {
 	return nil
 }
 
+//Stop gracefully closes the connection - it waits for the sending queue to clear, and then shuts down.
 func (conn *Connection) Stop() {
 	//We can't just close the main queue channel, because retries might still need to be sent there.
 	//
@@ -63,7 +72,9 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 	for {
 		pn, ok := <-conn.queue
 		if !ok {
-			//That means the connection is closed, teardown the connection (should it be this routine's responsibility?) and return
+			//That means the Connection is stopped
+			//teardown the connection (should it be this routine's responsibility?)
+			//close sent?
 			return
 		} else {
 			//If not connected, connect
@@ -111,8 +122,8 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 			}
 		case resp, ok := <-responses:
 			if !ok {
-				//If the responses channel is closed, that means we're shutting down the connection.
-				//We should
+				//If the responses channel is closed,
+				//that means we're shutting down the connection.
 			}
 			switch {
 			case resp.Status == 0:
@@ -143,10 +154,6 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 					}
 				}
 			}
-			//Drop all of the notifications before this response (they're ok)
-			//if status != 10, return the offending notification on errors
-			//if status == 10, close the connection.
-			//requeue all the notifications after that one.
 		case <-ticker.C:
 			timeNextNotification = true
 		}
