@@ -1,14 +1,12 @@
 package apns
 
-import ()
-
 // The maximum number of seconds we're willing to wait for a response
 // from the Apple Push Notification Service.
-const TIMEOUT_SECONDS = 5
+const TimeoutSeconds = 5
 
 // This enumerates the response codes that Apple defines
 // for push notification attempts.
-var APPLE_PUSH_RESPONSES = map[uint8]string{
+var ApplePushResponses = map[uint8]string{
 	0:   "NO_ERRORS",
 	1:   "PROCESSING_ERROR",
 	2:   "MISSING_DEVICE_TOKEN",
@@ -22,13 +20,15 @@ var APPLE_PUSH_RESPONSES = map[uint8]string{
 	255: "UNKNOWN",
 }
 
+// PushNotificationResponse details what Apple had to say, if anything.
 type PushNotificationResponse struct {
 	Success       bool
 	AppleResponse string
 	Error         error
 }
 
-// Constructor.
+// NewPushNotificationResponse creates and returns a new PushNotificationResponse
+// structure; it defaults to being unsuccessful at first.
 func NewPushNotificationResponse() (resp *PushNotificationResponse) {
 	resp = new(PushNotificationResponse)
 	resp.Success = false
