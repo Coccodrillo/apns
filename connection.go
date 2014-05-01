@@ -13,10 +13,12 @@ var ResponseQueueSize = 10000
 //SentBufferSize is the maximum number of sent notifications which may be buffered.
 var SentBufferSize = 10000
 
+var maxBackoff = 20 * time.Second
+
 //Connection represents a single connection to APNS.
 type Connection struct {
-	client Client
-	conn   tls.Conn
+	Client
+	conn   *tls.Conn
 	queue  chan PushNotification
 	errors chan *BadPushNotification
 }
@@ -52,6 +54,10 @@ func (conn *Connection) Errors() (errors <-chan *BadPushNotification) {
 //Start initiates a connection to APNS and asnchronously sends notifications which have been queued.
 func (conn *Connection) Start() error {
 	//Connect to APNS. The reason this is here as well as in sender is that this probably catches any unavoidable errors in a synchronous fashion, while in sender it can reconnect after temporary errors (which should work most of the time.)
+	err := conn.connect()
+	if err != nil {
+		return err
+	}
 	//Start sender goroutine
 	sent := make(chan PushNotification)
 	go conn.sender(conn.queue, sent)
@@ -69,18 +75,35 @@ func (conn *Connection) Stop() {
 }
 
 func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNotification) {
+	defer conn.conn.Close()
+	var backoff = time.Duration(100)
 	for {
 		pn, ok := <-conn.queue
 		if !ok {
 			//That means the Connection is stopped
-			//teardown the connection (should it be this routine's responsibility?)
 			//close sent?
 			return
 		} else {
 			//If not connected, connect
-			//Exponential backoff up to a limit
+			if conn.conn == nil {
+				for {
+					err := conn.connect()
+					if err != nil {
+						//Exponential backoff up to a limit
+						log.Println("APNS: Error connecting to server: ", err)
+						backoff = backoff * 2
+						if backoff > maxBackoff {
+							backoff = maxBackoff
+						}
+						time.Sleep(backoff)
+					} else {
+						backoff = 100
+						break
+					}
+				}
+			}
 			//Then send the push notification
-			//TODO(@draaglom): Do buffering as per the APNS docs
+			//TODO(draaglom): Do buffering as per the APNS docs
 		}
 	}
 }
@@ -158,4 +181,40 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 			timeNextNotification = true
 		}
 	}
+}
+
+func (conn *Connection) connect() error {
+	if conn.conn != nil {
+		conn.conn.Close()
+	}
+
+	var cert tls.Certificate
+	var err error
+	if len(conn.CertificateBase64) == 0 && len(conn.KeyBase64) == 0 {
+		// The user did not specify raw block contents, so check the filesystem.
+		cert, err = tls.LoadX509KeyPair(conn.CertificateFile, conn.KeyFile)
+	} else {
+		// The user provided the raw block contents, so use that.
+		cert, err = tls.X509KeyPair([]byte(conn.CertificateBase64), []byte(conn.KeyBase64))
+	}
+
+	if err != nil {
+		return err
+	}
+
+	conf := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
+	tlsConn, err := tls.Dial("tcp", conn.Gateway, conf)
+	if err != nil {
+		return err
+	}
+	err = tlsConn.Handshake()
+	if err != nil {
+		_ = tlsConn.Close()
+		return err
+	}
+	conn.conn = tlsConn
+	return nil
 }
