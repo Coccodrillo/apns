@@ -124,7 +124,7 @@ func (conn *Connection) reader(responses chan<- *Response) {
 	}
 }
 
-func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Response, errors chan PushNotification, queue chan PushNotification) {
+func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Response, errors chan BadPushNotification, queue chan PushNotification) {
 	limbo := make(chan PushNotification, SentBufferSize)
 	ticker := time.NewTicker(1 * time.Second)
 	timeNextNotification := true
@@ -169,6 +169,10 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 						hit = true
 						if resp.Status != 10 {
 							//It was an error, we should report this on the error channel
+							bad := BadPushNotification{PushNotification: pn, Status: resp.Status}
+							go func(bad BadPushNotification) {
+								errors <- bad
+							}(bad)
 						}
 					case pn.Identifier != resp.Identifier && hit:
 						//We've already seen the identified notification,
