@@ -23,6 +23,17 @@ type Connection struct {
 	errors chan *BadPushNotification
 }
 
+//NewConnection initializes an APNS connection. Use Connection.Start() to actually start sending notifications.
+func NewConnection(client *Client) *Connection {
+	c := new(Connection)
+	c.Client = *client
+	queue := make(chan PushNotification)
+	errors := make(chan *BadPushNotification)
+	c.queue = queue
+	c.errors = errors
+	return c
+}
+
 //Response is a reply from APNS - see apns.ApplePushResponses.
 type Response struct {
 	Status     uint8
