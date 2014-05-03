@@ -15,9 +15,6 @@ func TestLegacyConstants(t *testing.T) {
 	if !reflect.DeepEqual(FEEDBACK_TIMEOUT_SECONDS, FeedbackTimeoutSeconds) {
 		t.Error("expected FEEDBACK_TIMEOUT_SECONDS to equal FeedbackTimeoutSeconds")
 	}
-	if !reflect.DeepEqual(IDENTIFIER_UBOUND, IdentifierUbound) {
-		t.Error("expected IDENTIFIER_UBOUND to equal IdentifierUbound")
-	}
 	if !reflect.DeepEqual(MAX_PAYLOAD_SIZE_BYTES, MaxPayloadSizeBytes) {
 		t.Error("expected MAX_PAYLOAD_SIZE_BYTES to equal MaxPayloadSizeBytes")
 	}
