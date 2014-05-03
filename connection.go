@@ -104,6 +104,18 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 			}
 			//Then send the push notification
 			//TODO(draaglom): Do buffering as per the APNS docs
+			payload, err := pn.ToBytes()
+			if err != nil {
+				//Should report this on the bad notifications channel probably
+			} else {
+				_, err = conn.conn.Write(payload)
+				if err != nil {
+					//Disconnect?
+				} else {
+					sent <- pn
+				}
+			}
+
 		}
 	}
 }
