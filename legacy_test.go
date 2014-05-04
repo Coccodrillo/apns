@@ -21,9 +21,6 @@ func TestLegacyConstants(t *testing.T) {
 	if !reflect.DeepEqual(MAX_PAYLOAD_SIZE_BYTES, MaxPayloadSizeBytes) {
 		t.Error("expected MAX_PAYLOAD_SIZE_BYTES to equal MaxPayloadSizeBytes")
 	}
-	if !reflect.DeepEqual(PUSH_COMMAND_VALUE, PushCommandValue) {
-		t.Error("expected PUSH_COMMAND_VALUE to equal PushCommandValue")
-	}
 	if !reflect.DeepEqual(TIMEOUT_SECONDS, TimeoutSeconds) {
 		t.Error("expected TIMEOUT_SECONDS to equal TimeoutSeconds")
 	}
