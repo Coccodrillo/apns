@@ -11,25 +11,22 @@ import (
 )
 
 // Push commands always start with command value 2.
-const PushCommandValue = 2
+const pushCommandValue = 2
 
 // Your total notification payload cannot exceed 256 bytes.
 const MaxPayloadSizeBytes = 256
 
 // Constants related to the payload fields and their lengths.
 const (
-	DeviceTokenItemid            = 1
-	PayloadItemid                = 2
-	NotificationIdentifierItemid = 3
-	ExpirationDateItemid         = 4
-	PriorityItemid               = 5
-)
-
-const (
-	DeviceTokenLength            = 32
-	NotificationIdentifierLength = 4
-	ExpirationDateLength         = 4
-	PriorityLength               = 1
+	deviceTokenItemid            = 1
+	payloadItemid                = 2
+	notificationIdentifierItemid = 3
+	expirationDateItemid         = 4
+	priorityItemid               = 5
+	deviceTokenLength            = 32
+	notificationIdentifierLength = 4
+	expirationDateLength         = 4
+	priorityLength               = 1
 )
 
 // Payload contains the notification data for your request.
@@ -143,24 +140,24 @@ func (pn *PushNotification) ToBytes() ([]byte, error) {
 	}
 
 	frameBuffer := new(bytes.Buffer)
-	binary.Write(frameBuffer, binary.BigEndian, uint8(DeviceTokenItemid))
-	binary.Write(frameBuffer, binary.BigEndian, uint16(DeviceTokenLength))
+	binary.Write(frameBuffer, binary.BigEndian, uint8(deviceTokenItemid))
+	binary.Write(frameBuffer, binary.BigEndian, uint16(deviceTokenLength))
 	binary.Write(frameBuffer, binary.BigEndian, token)
-	binary.Write(frameBuffer, binary.BigEndian, uint8(PayloadItemid))
+	binary.Write(frameBuffer, binary.BigEndian, uint8(payloadItemid))
 	binary.Write(frameBuffer, binary.BigEndian, uint16(len(payload)))
 	binary.Write(frameBuffer, binary.BigEndian, payload)
-	binary.Write(frameBuffer, binary.BigEndian, uint8(NotificationIdentifierItemid))
-	binary.Write(frameBuffer, binary.BigEndian, uint16(NotificationIdentifierLength))
+	binary.Write(frameBuffer, binary.BigEndian, uint8(notificationIdentifierItemid))
+	binary.Write(frameBuffer, binary.BigEndian, uint16(notificationIdentifierLength))
 	binary.Write(frameBuffer, binary.BigEndian, pn.Identifier)
-	binary.Write(frameBuffer, binary.BigEndian, uint8(ExpirationDateItemid))
-	binary.Write(frameBuffer, binary.BigEndian, uint16(ExpirationDateLength))
+	binary.Write(frameBuffer, binary.BigEndian, uint8(expirationDateItemid))
+	binary.Write(frameBuffer, binary.BigEndian, uint16(expirationDateLength))
 	binary.Write(frameBuffer, binary.BigEndian, pn.Expiry)
-	binary.Write(frameBuffer, binary.BigEndian, uint8(PriorityItemid))
-	binary.Write(frameBuffer, binary.BigEndian, uint16(PriorityLength))
+	binary.Write(frameBuffer, binary.BigEndian, uint8(priorityItemid))
+	binary.Write(frameBuffer, binary.BigEndian, uint16(priorityLength))
 	binary.Write(frameBuffer, binary.BigEndian, pn.Priority)
 
 	buffer := bytes.NewBuffer([]byte{})
-	binary.Write(buffer, binary.BigEndian, uint8(PushCommandValue))
+	binary.Write(buffer, binary.BigEndian, uint8(pushCommandValue))
 	binary.Write(buffer, binary.BigEndian, uint32(frameBuffer.Len()))
 	binary.Write(buffer, binary.BigEndian, frameBuffer.Bytes())
 	return buffer.Bytes(), nil
