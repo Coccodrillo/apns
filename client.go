@@ -153,7 +153,7 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 // the overhead of the crypto libraries.
 func (client *Client) getCertificate() (tls.Certificate, error) {
 	var err error
-	if &client.Certificate == nil {
+	if client.Certificate.PrivateKey == nil {
 		if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
 			// The user did not specify raw block contents, so check the filesystem.
 			client.Certificate, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
