@@ -23,6 +23,7 @@ type Client struct {
 	CertificateBase64 string
 	KeyFile           string
 	KeyBase64         string
+	Certificate       tls.Certificate
 }
 
 // BareClient can be used to set the contents of your
@@ -82,15 +83,7 @@ func (client *Client) Send(pn *PushNotification) (resp *PushNotificationResponse
 // possible to get a false positive if Apple takes a long time to respond.
 // It's probably not a deal-breaker, but something to be aware of.
 func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
-	var cert tls.Certificate
-
-	if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
-		// The user did not specify raw block contents, so check the filesystem.
-		cert, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
-	} else {
-		// The user provided the raw block contents, so use that.
-		cert, err = tls.X509KeyPair([]byte(client.CertificateBase64), []byte(client.KeyBase64))
-	}
+	cert, err := client.getCertificate()
 
 	if err != nil {
 		return err
@@ -153,4 +146,22 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	}
 
 	return err
+}
+
+// Returns a certificate to use to send the notification.
+// The certificate is only created once to save on
+// the overhead of the crypto libraries.
+func (client *Client) getCertificate() (tls.Certificate, error) {
+	var err error
+	if &client.Certificate == nil {
+		if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
+			// The user did not specify raw block contents, so check the filesystem.
+			client.Certificate, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
+		} else {
+			// The user provided the raw block contents, so use that.
+			client.Certificate, err = tls.X509KeyPair([]byte(client.CertificateBase64), []byte(client.KeyBase64))
+		}
+	}
+
+	return client.Certificate, err
 }
