@@ -171,7 +171,6 @@ func (client *Client) openConnection() error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
 
 	tlsConn := tls.Client(conn, conf)
 	err = tlsConn.Handshake()
