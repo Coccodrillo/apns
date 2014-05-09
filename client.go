@@ -156,7 +156,7 @@ func (client *Client) openConnection() error {
 	}
 
 	conf := &tls.Config{
-		Certificates: []tls.Certificate{cert},
+		Certificates: []tls.Certificate{client.certificate},
 	}
 
 	conn, err := net.Dial("tcp", client.Gateway)
@@ -172,6 +172,7 @@ func (client *Client) openConnection() error {
 	}
 
 	client.apnsConnection = tlsConn
+	return nil
 }
 
 // Returns a certificate to use to send the notification.
@@ -179,6 +180,7 @@ func (client *Client) openConnection() error {
 // the overhead of the crypto libraries.
 func (client *Client) getCertificate() error {
 	var err error
+
 	if client.certificate.PrivateKey == nil {
 		if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
 			// The user did not specify raw block contents, so check the filesystem.
