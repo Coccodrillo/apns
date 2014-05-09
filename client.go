@@ -179,13 +179,13 @@ func (client *Client) openConnection() error {
 // the overhead of the crypto libraries.
 func (client *Client) getCertificate() error {
 	var err error
-	if client.Certificate.PrivateKey == nil {
+	if client.certificate.PrivateKey == nil {
 		if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
 			// The user did not specify raw block contents, so check the filesystem.
-			client.Certificate, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
+			client.certificate, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
 		} else {
 			// The user provided the raw block contents, so use that.
-			client.Certificate, err = tls.X509KeyPair([]byte(client.CertificateBase64), []byte(client.KeyBase64))
+			client.certificate, err = tls.X509KeyPair([]byte(client.CertificateBase64), []byte(client.KeyBase64))
 		}
 	}
 
