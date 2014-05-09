@@ -88,16 +88,19 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	var bytesWritten int
 	var err error
 
+	if client.apnsConnection == nil {
+		err = client.openConnection()
+		if err != nil {
+			return err
+		}
+	}
+
 	bytesWritten, err = client.apnsConnection.Write(payload)
 	if err != nil {
 		return err
 	}
 	if bytesWritten == 0 {
 		client.apnsConnection.Close()
-		err = client.openConnection()
-		if err != nil {
-			return err
-		}
 
 		bytesWritten, err = client.apnsConnection.Write(payload)
 		if err != nil {
