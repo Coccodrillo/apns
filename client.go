@@ -3,6 +3,7 @@ package apns
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 )
@@ -23,7 +24,8 @@ type Client struct {
 	CertificateBase64 string
 	KeyFile           string
 	KeyBase64         string
-	Certificate       tls.Certificate
+	certificate       tls.Certificate
+	apnsConnection    *tls.Conn
 }
 
 // BareClient can be used to set the contents of your
@@ -82,33 +84,29 @@ func (client *Client) Send(pn *PushNotification) (resp *PushNotificationResponse
 // Whichever channel puts data on first is the "winner". As such, it's
 // possible to get a false positive if Apple takes a long time to respond.
 // It's probably not a deal-breaker, but something to be aware of.
-func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
-	cert, err := client.getCertificate()
+func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) error {
+	var bytesWritten int
+	var err error
 
+	bytesWritten, err = client.apnsConnection.Write(payload)
 	if err != nil {
 		return err
 	}
+	if bytesWritten == 0 {
+		client.apnsConnection.Close()
+		err = client.openConnection()
+		if err != nil {
+			return err
+		}
 
-	conf := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
-
-	conn, err := net.Dial("tcp", client.Gateway)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	tlsConn := tls.Client(conn, conf)
-	err = tlsConn.Handshake()
-	if err != nil {
-		return err
-	}
-	defer tlsConn.Close()
-
-	_, err = tlsConn.Write(payload)
-	if err != nil {
-		return err
+		bytesWritten, err = client.apnsConnection.Write(payload)
+		if err != nil {
+			return err
+		}
+		if bytesWritten == 0 {
+			client.apnsConnection.Close()
+			return fmt.Errorf("Could not open connection to %s.  Please try again.", client.Gateway)
+		}
 	}
 
 	// Create one channel that will serve to handle
@@ -124,7 +122,7 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	responseChannel := make(chan []byte, 1)
 	go func() {
 		buffer := make([]byte, 6, 6)
-		tlsConn.Read(buffer)
+		client.apnsConnection.Read(buffer)
 		responseChannel <- buffer
 	}()
 
@@ -148,10 +146,38 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	return err
 }
 
+// Opens a connection to the Apple APNS server
+// The connection is created and persisted to the client's apnsConnection property
+//	to save on the overhead of the crypto libraries.
+func (client *Client) openConnection() error {
+	err := client.getCertificate()
+	if err != nil {
+		return err
+	}
+
+	conf := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
+	conn, err := net.Dial("tcp", client.Gateway)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	tlsConn := tls.Client(conn, conf)
+	err = tlsConn.Handshake()
+	if err != nil {
+		return err
+	}
+
+	client.apnsConnection = tlsConn
+}
+
 // Returns a certificate to use to send the notification.
 // The certificate is only created once to save on
 // the overhead of the crypto libraries.
-func (client *Client) getCertificate() (tls.Certificate, error) {
+func (client *Client) getCertificate() error {
 	var err error
 	if client.Certificate.PrivateKey == nil {
 		if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
@@ -163,5 +189,5 @@ func (client *Client) getCertificate() (tls.Certificate, error) {
 		}
 	}
 
-	return client.Certificate, err
+	return err
 }
