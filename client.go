@@ -97,10 +97,15 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 
 	bytesWritten, err = client.apnsConnection.Write(payload)
 	if err != nil {
-		return err
-	}
-	if bytesWritten == 0 {
-		client.apnsConnection.Close()
+		if err.Error() != "use of closed network connection" {
+			return err
+		}
+
+		// If the connection is closed, reconnect
+		err = client.openConnection()
+		if err != nil {
+			return err
+		}
 
 		bytesWritten, err = client.apnsConnection.Write(payload)
 		if err != nil {
