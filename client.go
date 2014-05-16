@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"time"
 )
@@ -158,6 +159,7 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 // The connection is created and persisted to the client's apnsConnection property
 //	to save on the overhead of the crypto libraries.
 func (client *Client) openConnection() error {
+	log.Println("APNS - openConnection")
 	err := client.getCertificate()
 	if err != nil {
 		return err
@@ -189,6 +191,7 @@ func (client *Client) getCertificate() error {
 	var err error
 
 	if client.certificate.PrivateKey == nil {
+		log.Println("APNS - getCertificate")
 		if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
 			// The user did not specify raw block contents, so check the filesystem.
 			client.certificate, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
