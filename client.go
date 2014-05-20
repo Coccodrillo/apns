@@ -86,12 +86,15 @@ func (client *Client) Send(pn *PushNotification) (resp *PushNotificationResponse
 // possible to get a false positive if Apple takes a long time to respond.
 // It's probably not a deal-breaker, but something to be aware of.
 func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) error {
+	log.Println("APNS - ConnectAndWrite")
+
 	var bytesWritten int
 	var err error
 
 	if client.apnsConnection == nil {
 		err = client.openConnection()
 		if err != nil {
+			log.Printf("APNS - ConnectAndWrite: open connection (#1) error = %s\n", err.Error())
 			return err
 		}
 	}
@@ -99,20 +102,24 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	bytesWritten, err = client.apnsConnection.Write(payload)
 	if err != nil {
 		if err.Error() != "use of closed network connection" {
+			log.Printf("APNS - ConnectAndWrite: write (#1) error = %s\n", err.Error())
 			return err
 		}
 
 		// If the connection is closed, reconnect
 		err = client.openConnection()
 		if err != nil {
+			log.Printf("APNS - ConnectAndWrite: open connection (#2) error = %s\n", err.Error())
 			return err
 		}
 
 		bytesWritten, err = client.apnsConnection.Write(payload)
 		if err != nil {
+			log.Printf("APNS - ConnectAndWrite: write (#2) error = %s\n", err.Error())
 			return err
 		}
 		if bytesWritten == 0 {
+			log.Printf("APNS - ConnectAndWrite: write (#2), bytes written = 0\n")
 			client.apnsConnection.Close()
 			return fmt.Errorf("Could not open connection to %s.  Please try again.", client.Gateway)
 		}
