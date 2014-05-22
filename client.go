@@ -30,7 +30,7 @@ type Client struct {
 	messagesSent      int
 }
 
-const APNS_CLIENT_MAX_MESSAGES_SENT = 500 // Max # of messages sent before re-establishing a connection to APNS
+const APNS_CLIENT_MAX_MESSAGES_SENT = 300 // Max # of messages sent before re-establishing a connection to APNS
 
 // BareClient can be used to set the contents of your
 // certificate and key blocks manually.
