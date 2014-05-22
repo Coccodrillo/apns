@@ -27,7 +27,10 @@ type Client struct {
 	KeyBase64         string
 	certificate       tls.Certificate
 	apnsConnection    *tls.Conn
+	messagesSent      int
 }
+
+const APNS_CLIENT_MAX_MESSAGES_SENT = 500 // Max # of messages sent before re-establishing a connection to APNS
 
 // BareClient can be used to set the contents of your
 // certificate and key blocks manually.
@@ -91,7 +94,8 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	var bytesWritten int
 	var err error
 
-	if client.apnsConnection == nil {
+	if client.apnsConnection == nil || client.messagesSent > APNS_CLIENT_MAX_MESSAGES_SENT {
+		// We want to re-establish the connection to APNS after a number of messages sent
 		err = client.openConnection()
 		if err != nil {
 			log.Printf("APNS - ConnectAndWrite: open connection (#1) error = %s\n", err.Error())
@@ -124,6 +128,8 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 			return fmt.Errorf("Could not open connection to %s.  Please try again.", client.Gateway)
 		}
 	}
+
+	client.messagesSent++
 
 	// Create one channel that will serve to handle
 	// timeouts when the notification succeeds.
@@ -167,6 +173,11 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 //	to save on the overhead of the crypto libraries.
 func (client *Client) openConnection() error {
 	log.Println("APNS - openConnection")
+
+	if client.apnsConnection != nil {
+		client.apnsConnection.Close()
+	}
+
 	err := client.getCertificate()
 	if err != nil {
 		return err
