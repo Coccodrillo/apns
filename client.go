@@ -199,6 +199,7 @@ func (client *Client) openConnection() error {
 	}
 
 	client.apnsConnection = tlsConn
+	client.messagesSent = 0
 	return nil
 }
 
