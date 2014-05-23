@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"time"
 )
@@ -86,8 +85,6 @@ func (client *Client) Send(pn *PushNotification) (resp *PushNotificationResponse
 // possible to get a false positive if Apple takes a long time to respond.
 // It's probably not a deal-breaker, but something to be aware of.
 func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) error {
-	log.Println("APNS - ConnectAndWrite")
-
 	var bytesWritten int
 	var err error
 
@@ -95,7 +92,6 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 		// We want to re-establish the connection to APNS after a number of messages sent
 		err = client.openConnection()
 		if err != nil {
-			log.Printf("APNS - ConnectAndWrite: open connection (#1) error = %s\n", err.Error())
 			return err
 		}
 	}
@@ -103,24 +99,20 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	bytesWritten, err = client.apnsConnection.Write(payload)
 	if err != nil {
 		if err.Error() != "use of closed network connection" && err.Error() != "EOF" {
-			log.Printf("APNS - ConnectAndWrite: write (#1) error = %s\n", err.Error())
 			return err
 		}
 
 		// If the connection is closed, reconnect
 		err = client.openConnection()
 		if err != nil {
-			log.Printf("APNS - ConnectAndWrite: open connection (#2) error = %s\n", err.Error())
 			return err
 		}
 
 		bytesWritten, err = client.apnsConnection.Write(payload)
 		if err != nil {
-			log.Printf("APNS - ConnectAndWrite: write (#2) error = %s\n", err.Error())
 			return err
 		}
 		if bytesWritten == 0 {
-			log.Printf("APNS - ConnectAndWrite: write (#2), bytes written = 0\n")
 			client.apnsConnection.Close()
 			return fmt.Errorf("Could not open connection to %s.  Please try again.", client.Gateway)
 		}
@@ -167,8 +159,6 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 // The connection is created and persisted to the client's apnsConnection property
 //	to save on the overhead of the crypto libraries.
 func (client *Client) openConnection() error {
-	log.Println("APNS - openConnection")
-
 	if client.apnsConnection != nil {
 		client.apnsConnection.Close()
 	}
@@ -204,7 +194,6 @@ func (client *Client) getCertificate() error {
 	var err error
 
 	if client.certificate.PrivateKey == nil {
-		log.Println("APNS - getCertificate")
 		if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
 			// The user did not specify raw block contents, so check the filesystem.
 			client.certificate, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
