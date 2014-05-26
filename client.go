@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -98,7 +99,7 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 
 	bytesWritten, err = client.apnsConnection.Write(payload)
 	if err != nil {
-		if err.Error() != "use of closed network connection" && err.Error() != "EOF" {
+		if err.Error() != "use of closed network connection" && err.Error() != "EOF" && err.Error() != fmt.Sprintf("write tcp %s: broken pipe", client.Gateway) {
 			return err
 		}
 
