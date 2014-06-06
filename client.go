@@ -100,6 +100,10 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	bytesWritten, err = client.apnsConnection.Write(payload)
 	if err != nil {
 		if err.Error() != "use of closed network connection" && err.Error() != "EOF" && !strings.Contains(err.Error(), "broken pipe") && err.Error() != "connection reset by peer" {
+			if client.apnsConnection != nil {
+				client.apnsConnection.Close()
+			}
+			client.apnsConnection = nil
 			return err
 		}
 
@@ -111,10 +115,15 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 
 		bytesWritten, err = client.apnsConnection.Write(payload)
 		if err != nil {
+			if client.apnsConnection != nil {
+				client.apnsConnection.Close()
+			}
+			client.apnsConnection = nil
 			return err
 		}
 		if bytesWritten == 0 {
 			client.apnsConnection.Close()
+			client.apnsConnection = nil
 			return fmt.Errorf("Could not open connection to %s.  Please try again.", client.Gateway)
 		}
 	}
