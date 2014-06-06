@@ -99,7 +99,7 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 
 	bytesWritten, err = client.apnsConnection.Write(payload)
 	if err != nil {
-		if err.Error() != "use of closed network connection" && err.Error() != "EOF" && !strings.Contains(err.Error(), "broken pipe") {
+		if err.Error() != "use of closed network connection" && err.Error() != "EOF" && !strings.Contains(err.Error(), "broken pipe") && err.Error() != "connection reset by peer" {
 			return err
 		}
 
