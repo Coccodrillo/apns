@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -53,8 +54,10 @@ func (client *Client) ListenForFeedback() (err error) {
 		return err
 	}
 
+	gatewayParts := strings.Split(client.Gateway, ":")
 	conf := &tls.Config{
 		Certificates: []tls.Certificate{cert},
+		ServerName: gatewayParts[0],
 	}
 
 	conn, err := net.Dial("tcp", client.Gateway)
