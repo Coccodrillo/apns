@@ -43,7 +43,7 @@ type Payload struct {
 	Alert            interface{} `json:"alert,omitempty"`
 	Badge            int         `json:"badge,omitempty"`
 	Sound            string      `json:"sound,omitempty"`
-	ContentAvailable int         `json:"content-available,omnitempty"`
+	ContentAvailable int         `json:"content-available,omitempty"`
 }
 
 // NewPayload creates and returns a Payload structure.
