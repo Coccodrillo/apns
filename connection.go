@@ -18,9 +18,10 @@ var maxBackoff = 20 * time.Second
 //Connection represents a single connection to APNS.
 type Connection struct {
 	Client
-	conn   *tls.Conn
-	queue  chan PushNotification
-	errors chan BadPushNotification
+	conn      *tls.Conn
+	queue     chan PushNotification
+	errors    chan BadPushNotification
+	responses chan Response
 }
 
 //NewConnection initializes an APNS connection. Use Connection.Start() to actually start sending notifications.
@@ -29,8 +30,10 @@ func NewConnection(client *Client) *Connection {
 	c.Client = *client
 	queue := make(chan PushNotification)
 	errors := make(chan BadPushNotification)
+	responses := make(chan Response, ResponseQueueSize)
 	c.queue = queue
 	c.errors = errors
+	c.responses = responses
 	return c
 }
 
@@ -73,11 +76,8 @@ func (conn *Connection) Start() error {
 	//Start sender goroutine
 	sent := make(chan PushNotification)
 	go conn.sender(conn.queue, sent)
-	//Start reader goroutine
-	responses := make(chan Response, ResponseQueueSize)
-	go conn.reader(responses)
 	//Start limbo goroutine
-	go conn.limbo(sent, responses, conn.errors, conn.queue)
+	go conn.limbo(sent, conn.responses, conn.errors, conn.queue)
 	return nil
 }
 
@@ -93,6 +93,7 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 	for {
 		pn, ok := <-conn.queue
 		if !ok {
+			log.Println("Not okay; queue closed.")
 			//That means the Connection is stopped
 			//close sent?
 			return
@@ -116,13 +117,12 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 				}
 			}
 			//Then send the push notification
-			//TODO(draaglom): Do buffering as per the APNS docs
 			payload, err := pn.ToBytes()
 			if err != nil {
 				log.Println(err)
 				//Should report this on the bad notifications channel probably
 			} else {
-				_, err = conn.conn.Write(payload)
+				n, err := conn.conn.Write(payload)
 				if err != nil {
 					log.Println(err)
 					//Disconnect?
@@ -188,7 +188,13 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 				for pn := range limbo {
 					//Drop all the notifications until we get to the timed-out one.
 					//(and leave the others in limbo)
-					if pn.Identifier == resp.Identifier {
+					switch {
+					case pn.Identifier == resp.Identifier:
+						break
+					default:
+						//This one was successful; drop silently.
+					}
+					if len(limbo) == 0 {
 						break
 					}
 				}
@@ -212,6 +218,9 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 						//We've already seen the identified notification,
 						//so these should be requeued
 						conn.Enqueue(&pn)
+					}
+					if len(limbo) == 0 {
+						break
 					}
 				}
 			}
@@ -254,5 +263,7 @@ func (conn *Connection) connect() error {
 		return err
 	}
 	conn.conn = tlsConn
+	//Start reader goroutine
+	go conn.reader(conn.responses)
 	return nil
 }
