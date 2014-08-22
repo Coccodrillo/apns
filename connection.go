@@ -20,7 +20,7 @@ type Connection struct {
 	Client
 	conn   *tls.Conn
 	queue  chan PushNotification
-	errors chan *BadPushNotification
+	errors chan BadPushNotification
 }
 
 //NewConnection initializes an APNS connection. Use Connection.Start() to actually start sending notifications.
@@ -28,7 +28,7 @@ func NewConnection(client *Client) *Connection {
 	c := new(Connection)
 	c.Client = *client
 	queue := make(chan PushNotification)
-	errors := make(chan *BadPushNotification)
+	errors := make(chan BadPushNotification)
 	c.queue = queue
 	c.errors = errors
 	return c
@@ -40,8 +40,9 @@ type Response struct {
 	Identifier uint32
 }
 
-func newResponse() *Response {
-	return new(Response)
+func newResponse() Response {
+	r := Response{}
+	return r
 }
 
 //BadPushNotification represents a notification which APNS didn't like.
@@ -58,7 +59,7 @@ func (conn *Connection) Enqueue(pn *PushNotification) {
 }
 
 //Errors gives you a channel of the push notifications Apple rejected.
-func (conn *Connection) Errors() (errors <-chan *BadPushNotification) {
+func (conn *Connection) Errors() (errors <-chan BadPushNotification) {
 	return conn.errors
 }
 
@@ -73,9 +74,10 @@ func (conn *Connection) Start() error {
 	sent := make(chan PushNotification)
 	go conn.sender(conn.queue, sent)
 	//Start reader goroutine
-	responses := make(chan *Response, ResponseQueueSize)
+	responses := make(chan Response, ResponseQueueSize)
 	go conn.reader(responses)
 	//Start limbo goroutine
+	go conn.limbo(sent, responses, conn.errors, conn.queue)
 	return nil
 }
 
@@ -117,33 +119,42 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 			//TODO(draaglom): Do buffering as per the APNS docs
 			payload, err := pn.ToBytes()
 			if err != nil {
+				log.Println(err)
 				//Should report this on the bad notifications channel probably
 			} else {
 				_, err = conn.conn.Write(payload)
 				if err != nil {
+					log.Println(err)
 					//Disconnect?
 				} else {
 					sent <- pn
 				}
 			}
-
 		}
 	}
 }
 
-func (conn *Connection) reader(responses chan<- *Response) {
+func (conn *Connection) reader(responses chan<- Response) {
 	buffer := make([]byte, 6)
 	for {
-		_, err := conn.conn.Read(buffer)
-		if err != nil {
-			log.Println("APNS: Error reading from connection: ", err)
+		n, err := conn.conn.Read(buffer)
+		if err != nil && n < 6 {
+			log.Println("APNS: Error before reading complete response", n, err)
 			conn.conn.Close()
+			conn.conn = nil
 			return
+		}
+		command := uint8(buffer[0])
+		if command != 8 {
+			log.Println("Something went wrong: command should have been 8; it was actually", command)
 		}
 		resp := newResponse()
 		resp.Identifier = binary.BigEndian.Uint32(buffer[2:6])
 		resp.Status = uint8(buffer[1])
 		responses <- resp
+		conn.conn.Close()
+		conn.conn = nil
+		return
 	}
 }
 
@@ -162,7 +173,7 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 					<-time.After(TimeoutSeconds * time.Second)
 					successResp := newResponse()
 					successResp.Identifier = pn.Identifier
-					responses <- *successResp
+					responses <- successResp
 				}(pn)
 				timeNextNotification = false
 			}
