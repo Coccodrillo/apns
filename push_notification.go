@@ -8,6 +8,7 @@ import (
 	"errors"
 	"math/rand"
 	"strconv"
+	"time"
 )
 
 // Push commands always start with command value 2.
@@ -76,7 +77,7 @@ type PushNotification struct {
 func NewPushNotification() (pn *PushNotification) {
 	pn = new(PushNotification)
 	pn.payload = make(map[string]interface{})
-	pn.Identifier = rand.Uint32()
+	pn.Identifier = rand.New(rand.NewSource(time.Now().UnixNano())).Uint32()
 	pn.Priority = 10
 	return
 }
