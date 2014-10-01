@@ -139,6 +139,9 @@ func (pn *PushNotification) ToBytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(token) != deviceTokenLength {
+		return nil, errors.New("device token has incorrect length")
+	}
 	payload, err := pn.PayloadJSON()
 	if err != nil {
 		return nil, err
