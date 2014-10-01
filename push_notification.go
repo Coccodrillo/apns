@@ -139,6 +139,9 @@ func (pn *PushNotification) ToBytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(token) != 32 {
+		return nil, errors.New("device token is the wrong size; expected 32 bytes but saw " + strconv.Itoa(len(token)))
+	}
 	payload, err := pn.PayloadJSON()
 	if err != nil {
 		return nil, err
