@@ -18,10 +18,11 @@ var maxBackoff = 20 * time.Second
 //Connection represents a single connection to APNS.
 type Connection struct {
 	Client
-	conn      *tls.Conn
-	queue     chan PushNotification
-	errors    chan BadPushNotification
-	responses chan Response
+	conn            *tls.Conn
+	queue           chan PushNotification
+	errors          chan BadPushNotification
+	responses       chan Response
+	shouldReconnect chan bool
 }
 
 //NewConnection initializes an APNS connection. Use Connection.Start() to actually start sending notifications.
@@ -31,6 +32,7 @@ func NewConnection(client *Client) *Connection {
 	queue := make(chan PushNotification)
 	errors := make(chan BadPushNotification)
 	responses := make(chan Response, ResponseQueueSize)
+	c.shouldReconnect = make(chan bool)
 	c.queue = queue
 	c.errors = errors
 	c.responses = responses
@@ -108,8 +110,11 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 			//close sent?
 			return
 		} else {
-			//If not connected, connect
-			if conn.conn == nil {
+			//This means we saw a response; connection is over.
+			select {
+			case <-conn.shouldReconnect:
+				conn.conn.Close()
+				conn.conn = nil
 				for {
 					log.Println("Connection lost; reconnecting.")
 					err := conn.connect()
@@ -127,6 +132,7 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 						break
 					}
 				}
+			default:
 			}
 			//Then send the push notification
 			payload, err := pn.ToBytes()
@@ -137,6 +143,9 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 				n, err := conn.conn.Write(payload)
 				if err != nil {
 					log.Println(err)
+					go func() {
+						conn.shouldReconnect <- true
+					}()
 					//Disconnect?
 				} else {
 					i++
@@ -167,8 +176,7 @@ func (conn *Connection) reader(responses chan<- Response) {
 		resp.Identifier = binary.BigEndian.Uint32(buffer[2:6])
 		resp.Status = uint8(buffer[1])
 		responses <- resp
-		conn.conn.Close()
-		conn.conn = nil
+		conn.shouldReconnect <- true
 		return
 	}
 }
