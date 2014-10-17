@@ -23,19 +23,26 @@ type Connection struct {
 	errors          chan BadPushNotification
 	responses       chan Response
 	shouldReconnect chan bool
+	stopping        chan bool
+	stopped         chan bool
+	senderFinished  chan bool
+	ackFinished     chan bool
 }
 
 //NewConnection initializes an APNS connection. Use Connection.Start() to actually start sending notifications.
 func NewConnection(client *Client) *Connection {
 	c := new(Connection)
 	c.Client = *client
-	queue := make(chan PushNotification)
-	errors := make(chan BadPushNotification)
-	responses := make(chan Response, ResponseQueueSize)
+	c.queue = make(chan PushNotification)
+	c.errors = make(chan BadPushNotification)
+	c.responses = make(chan Response, ResponseQueueSize)
 	c.shouldReconnect = make(chan bool)
-	c.queue = queue
-	c.errors = errors
-	c.responses = responses
+	c.stopping = make(chan bool)
+	c.stopped = make(chan bool)
+
+	c.senderFinished = make(chan bool)
+	c.ackFinished = make(chan bool)
+
 	return c
 }
 
@@ -93,66 +100,89 @@ func (conn *Connection) Start() error {
 }
 
 //Stop gracefully closes the connection - it waits for the sending queue to clear, and then shuts down.
-func (conn *Connection) Stop() {
-	//We can't just close the main queue channel, because retries might still need to be sent there.
-	//
+func (conn *Connection) Stop() chan bool {
+	log.Println("apns: shutting down.")
+	conn.stopping <- true
+	return conn.stopped
+	//Thought: Don't necessarily need a channel here. Could signal finishing by closing errors?
 }
 
 func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNotification) {
 	i := 0
+	stopping := false
 	defer conn.conn.Close()
 	var backoff = time.Duration(100)
 	for {
-		pn, ok := <-conn.queue
-		if !ok {
-			log.Println("Not okay; queue closed.")
-			//That means the Connection is stopped
-			//close sent?
-			return
-		} else {
-			//This means we saw a response; connection is over.
-			select {
-			case <-conn.shouldReconnect:
-				conn.conn.Close()
-				conn.conn = nil
-				for {
-					log.Println("Connection lost; reconnecting.")
-					err := conn.connect()
-					if err != nil {
-						//Exponential backoff up to a limit
-						log.Println("APNS: Error connecting to server: ", err)
-						backoff = backoff * 2
-						if backoff > maxBackoff {
-							backoff = maxBackoff
-						}
-						time.Sleep(backoff)
-					} else {
-						backoff = 100
-						log.Println("Connected...")
-						break
-					}
-				}
-			default:
-			}
-			//Then send the push notification
-			payload, err := pn.ToBytes()
-			if err != nil {
-				log.Println(err)
-				//Should report this on the bad notifications channel probably
+		select {
+		case pn, ok := <-conn.queue:
+			if !ok {
+				log.Println("Not okay; queue closed.")
+				//That means the Connection is stopped
+				//close sent?
+				return
 			} else {
-				n, err := conn.conn.Write(payload)
+				//This means we saw a response; connection is over.
+				select {
+				case <-conn.shouldReconnect:
+					conn.conn.Close()
+					conn.conn = nil
+					for {
+						log.Println("Connection lost; reconnecting.")
+						err := conn.connect()
+						if err != nil {
+							//Exponential backoff up to a limit
+							log.Println("APNS: Error connecting to server: ", err)
+							backoff = backoff * 2
+							if backoff > maxBackoff {
+								backoff = maxBackoff
+							}
+							time.Sleep(backoff)
+						} else {
+							backoff = 100
+							log.Println("Connected...")
+							break
+						}
+					}
+				default:
+				}
+				//Then send the push notification
+				payload, err := pn.ToBytes()
 				if err != nil {
 					log.Println(err)
-					go func() {
-						conn.shouldReconnect <- true
-					}()
-					//Disconnect?
+					//Should report this on the bad notifications channel probably
 				} else {
-					i++
-					log.Println("Sent count:", i)
-					log.Println("Wrote bytes:", n, "of notification:", pn.Identifier)
-					sent <- pn
+					n, err := conn.conn.Write(payload)
+					if err != nil {
+						log.Println(err)
+						go func() {
+							conn.shouldReconnect <- true
+						}()
+						//Disconnect?
+					} else {
+						i++
+						log.Println("Sent count:", i)
+						log.Println("Wrote bytes:", n, "of notification:", pn.Identifier)
+						sent <- pn
+						if stopping && len(queue) == 0 {
+							log.Println("sender: I'm stopping and I've run out of things to send. Let's see if limbo is empty.")
+							conn.senderFinished <- true
+						}
+					}
 				}
+			}
+		case <-conn.stopping:
+			log.Println("sender: Got a stop message!")
+			stopping = true
+			if len(queue) == 0 {
+				log.Println("sender: I'm stopping and I've run out of things to send. Let's see if limbo is empty.")
+				conn.senderFinished <- true
+			}
+		case <-conn.ackFinished:
+			log.Println("sender: limbo is empty!")
+			if len(queue) == 0 {
+				log.Println("sender: limbo is empty and so am I!")
+				close(sent)
+				return
 			}
 		}
 	}
@@ -182,13 +212,23 @@ func (conn *Connection) reader(responses chan<- Response) {
 }
 
 func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Response, errors chan BadPushNotification, queue chan PushNotification) {
+	stopping := false
 	limbo := make([]timedPushNotification, 0, SentBufferSize)
 	ticker := time.NewTicker(1 * time.Second)
 	for {
 		select {
-		case pn := <-sent:
+		case pn, ok := <-sent:
 			//Drop it into the array
 			limbo = append(limbo, pn.timed())
+			stopping = false
+			if !ok {
+				log.Println("limbo: sent is closed, so sender is done. So am I, then!")
+				close(errors)
+				conn.stopped <- true
+				return
+			}
+		case <-conn.senderFinished:
+			stopping = true
 		case resp, ok := <-responses:
 			if !ok {
 				//If the responses channel is closed,
@@ -208,7 +248,11 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 					}
 					if len(limbo) > i {
 						log.Printf("Requeueing %d notifications\n", len(limbo)-(i+1))
-						conn.requeue(limbo[i+1:])
+						toRequeue := len(limbo) - (i + 1)
+						if toRequeue > 0 {
+							conn.requeue(limbo[i+1:])
+							stopping = false
+						}
 					}
 				}
 			}
@@ -230,6 +274,10 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 			if !flushed {
 				log.Println("Looks like every notification has timed out.")
 				limbo = make([]timedPushNotification, 0, SentBufferSize)
+			}
+			if stopping && len(limbo) == 0 {
+				log.Println("limbo: I've flushed all my notifications. Tell sender I'm done.")
+				conn.ackFinished <- true
 			}
 		}
 	}
