@@ -211,6 +211,9 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 				return
 			}
 		case <-conn.senderFinished:
+			//senderFinished means the sender thinks it's done.
+			//However, sender might not be - limbo could resend some, if there are any left here.
+			//So we just take note of this until limbo is empty too.
 			stopping = true
 		case resp, ok := <-responses:
 			if !ok {
@@ -230,6 +233,7 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 						toRequeue := len(limbo) - (i + 1)
 						if toRequeue > 0 {
 							conn.requeue(limbo[i+1:])
+							//We resent some notifications: that means we should wait for sender to tell us it's done, again.
 							stopping = false
 						}
 					}
@@ -251,6 +255,7 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 				limbo = make([]timedPushNotification, 0, SentBufferSize)
 			}
 			if stopping && len(limbo) == 0 {
+				//sender() is finished and so is limbo - so the connection is done.
 				conn.ackFinished <- true
 			}
 		}
