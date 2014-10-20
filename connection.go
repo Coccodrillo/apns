@@ -120,53 +120,52 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 				//That means the Connection is stopped
 				//close sent?
 				return
-			} else {
-				//This means we saw a response; connection is over.
-				select {
-				case <-conn.shouldReconnect:
-					conn.conn.Close()
-					conn.conn = nil
-					for {
-						log.Println("Connection lost; reconnecting.")
-						err := conn.connect()
-						if err != nil {
-							//Exponential backoff up to a limit
-							log.Println("APNS: Error connecting to server: ", err)
-							backoff = backoff * 2
-							if backoff > maxBackoff {
-								backoff = maxBackoff
-							}
-							time.Sleep(backoff)
-						} else {
-							backoff = 100
-							log.Println("Connected...")
-							break
+			}
+			//This means we saw a response; connection is over.
+			select {
+			case <-conn.shouldReconnect:
+				conn.conn.Close()
+				conn.conn = nil
+				for {
+					log.Println("Connection lost; reconnecting.")
+					err := conn.connect()
+					if err != nil {
+						//Exponential backoff up to a limit
+						log.Println("APNS: Error connecting to server: ", err)
+						backoff = backoff * 2
+						if backoff > maxBackoff {
+							backoff = maxBackoff
 						}
+						time.Sleep(backoff)
+					} else {
+						backoff = 100
+						log.Println("Connected...")
+						break
 					}
-				default:
 				}
-				//Then send the push notification
-				payload, err := pn.ToBytes()
+			default:
+			}
+			//Then send the push notification
+			payload, err := pn.ToBytes()
+			if err != nil {
+				log.Println(err)
+				//Should report this on the bad notifications channel probably
+			} else {
+				n, err := conn.conn.Write(payload)
 				if err != nil {
 					log.Println(err)
-					//Should report this on the bad notifications channel probably
+					go func() {
+						conn.shouldReconnect <- true
+					}()
+					//Disconnect?
 				} else {
-					n, err := conn.conn.Write(payload)
-					if err != nil {
-						log.Println(err)
-						go func() {
-							conn.shouldReconnect <- true
-						}()
-						//Disconnect?
-					} else {
-						i++
-						log.Println("Sent count:", i)
-						log.Println("Wrote bytes:", n, "of notification:", pn.Identifier)
-						sent <- pn
-						if stopping && len(queue) == 0 {
-							log.Println("sender: I'm stopping and I've run out of things to send. Let's see if limbo is empty.")
-							conn.senderFinished <- true
-						}
+					i++
+					log.Println("Sent count:", i)
+					log.Println("Wrote bytes:", n, "of notification:", pn.Identifier)
+					sent <- pn
+					if stopping && len(queue) == 0 {
+						log.Println("sender: I'm stopping and I've run out of things to send. Let's see if limbo is empty.")
+						conn.senderFinished <- true
 					}
 				}
 			}
