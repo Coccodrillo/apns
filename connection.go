@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+//QueueSize is the maximum number of unsent notifications which can be queued.
+var QueueSize = 10000
+
 //ResponseQueueSize indicates how many APNS responses may be buffered.
 var ResponseQueueSize = 10000
 
@@ -19,14 +22,14 @@ var maxBackoff = 20 * time.Second
 type Connection struct {
 	Client
 	conn            *tls.Conn
-	queue           chan PushNotification
-	errors          chan BadPushNotification
-	responses       chan Response
-	shouldReconnect chan bool
-	stopping        chan bool
-	stopped         chan bool
-	senderFinished  chan bool
-	ackFinished     chan bool
+	queue           chan PushNotification    //notifications to be sent
+	errors          chan BadPushNotification //error responses from APNS, delivered to the client
+	responses       chan Response            //error responses from APNS, before they're matched with their original notification
+	shouldReconnect chan bool                //sender waits for this signal to reconnect
+	stopping        chan bool                //this signal starts the shutdown process
+	stopped         chan bool                //this signals the shutdown process has finished
+	senderFinished  chan bool                //sender() tells limbo() it has done
+	ackFinished     chan bool                //limbo() tells sender() it's also done
 }
 
 //NewConnection initializes an APNS connection. Use Connection.Start() to actually start sending notifications.
@@ -79,7 +82,7 @@ func (conn *Connection) Enqueue(pn *PushNotification) {
 	}(pn)
 }
 
-//Errors gives you a channel of the push notifications Apple rejected.
+//Errors gives you a channel of the push notifications which Apple rejected.
 func (conn *Connection) Errors() (errors <-chan BadPushNotification) {
 	return conn.errors
 }
@@ -91,10 +94,8 @@ func (conn *Connection) Start() error {
 	if err != nil {
 		return err
 	}
-	//Start sender goroutine
 	sent := make(chan PushNotification)
 	go conn.sender(conn.queue, sent)
-	//Start limbo goroutine
 	go conn.limbo(sent, conn.responses, conn.errors, conn.queue)
 	return nil
 }
@@ -104,11 +105,9 @@ func (conn *Connection) Stop() chan bool {
 	log.Println("apns: shutting down.")
 	conn.stopping <- true
 	return conn.stopped
-	//Thought: Don't necessarily need a channel here. Could signal finishing by closing errors?
 }
 
 func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNotification) {
-	i := 0
 	stopping := false
 	defer conn.conn.Close()
 	var backoff = time.Duration(100)
@@ -116,18 +115,15 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 		select {
 		case pn, ok := <-conn.queue:
 			if !ok {
-				log.Println("Not okay; queue closed.")
 				//That means the Connection is stopped
-				//close sent?
+				close(sent)
 				return
 			}
-			//This means we saw a response; connection is over.
 			select {
-			case <-conn.shouldReconnect:
+			case <-conn.shouldReconnect: //This means we saw a response; connection is over.
 				conn.conn.Close()
 				conn.conn = nil
 				for {
-					log.Println("Connection lost; reconnecting.")
 					err := conn.connect()
 					if err != nil {
 						//Exponential backoff up to a limit
@@ -139,7 +135,6 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 						time.Sleep(backoff)
 					} else {
 						backoff = 100
-						log.Println("Connected...")
 						break
 					}
 				}
@@ -151,35 +146,26 @@ func (conn *Connection) sender(queue <-chan PushNotification, sent chan PushNoti
 				log.Println(err)
 				//Should report this on the bad notifications channel probably
 			} else {
-				n, err := conn.conn.Write(payload)
+				_, err := conn.conn.Write(payload)
 				if err != nil {
-					log.Println(err)
+					//Should resend this.
 					go func() {
 						conn.shouldReconnect <- true
 					}()
-					//Disconnect?
 				} else {
-					i++
-					log.Println("Sent count:", i)
-					log.Println("Wrote bytes:", n, "of notification:", pn.Identifier)
 					sent <- pn
 					if stopping && len(queue) == 0 {
-						log.Println("sender: I'm stopping and I've run out of things to send. Let's see if limbo is empty.")
 						conn.senderFinished <- true
 					}
 				}
 			}
 		case <-conn.stopping:
-			log.Println("sender: Got a stop message!")
 			stopping = true
 			if len(queue) == 0 {
-				log.Println("sender: I'm stopping and I've run out of things to send. Let's see if limbo is empty.")
 				conn.senderFinished <- true
 			}
 		case <-conn.ackFinished:
-			log.Println("sender: limbo is empty!")
 			if len(queue) == 0 {
-				log.Println("sender: limbo is empty and so am I!")
 				close(sent)
 				return
 			}
@@ -217,11 +203,9 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 	for {
 		select {
 		case pn, ok := <-sent:
-			//Drop it into the array
 			limbo = append(limbo, pn.timed())
 			stopping = false
 			if !ok {
-				log.Println("limbo: sent is closed, so sender is done. So am I, then!")
 				close(errors)
 				conn.stopped <- true
 				return
@@ -233,11 +217,8 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 				//If the responses channel is closed,
 				//that means we're shutting down the connection.
 			}
-			log.Println("Saw an error response; flushing up to", resp.Identifier)
-			log.Println("PNs in limbo:", len(limbo))
 			for i, pn := range limbo {
 				if pn.Identifier == resp.Identifier {
-					log.Println("Got the bad one!!! At index:", i, "identifier:", pn.Identifier)
 					if resp.Status != 10 {
 						//It was an error, we should report this on the error channel
 						bad := BadPushNotification{PushNotification: pn.PushNotification, Status: resp.Status}
@@ -246,7 +227,6 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 						}(bad)
 					}
 					if len(limbo) > i {
-						log.Printf("Requeueing %d notifications\n", len(limbo)-(i+1))
 						toRequeue := len(limbo) - (i + 1)
 						if toRequeue > 0 {
 							conn.requeue(limbo[i+1:])
@@ -258,24 +238,19 @@ func (conn *Connection) limbo(sent <-chan PushNotification, responses chan Respo
 			limbo = make([]timedPushNotification, 0, SentBufferSize)
 		case <-ticker.C:
 			flushed := false
-			log.Println("Notifications in limbo:", len(limbo))
 			for i := range limbo {
 				if limbo[i].After(time.Now().Add(-TimeoutSeconds * time.Second)) {
-					log.Printf("The first %d notifications timed out ok.\n", i)
 					newLimbo := make([]timedPushNotification, len(limbo[i:]), SentBufferSize)
 					copy(newLimbo, limbo[i:])
 					limbo = newLimbo
-					log.Println("Size of limbo is now:", len(limbo))
 					flushed = true
 					break
 				}
 			}
 			if !flushed {
-				log.Println("Looks like every notification has timed out.")
 				limbo = make([]timedPushNotification, 0, SentBufferSize)
 			}
 			if stopping && len(limbo) == 0 {
-				log.Println("limbo: I've flushed all my notifications. Tell sender I'm done.")
 				conn.ackFinished <- true
 			}
 		}
@@ -321,7 +296,6 @@ func (conn *Connection) connect() error {
 		return err
 	}
 	conn.conn = tlsConn
-	//Start reader goroutine
 	go conn.reader(conn.responses)
 	return nil
 }
