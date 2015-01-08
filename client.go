@@ -178,8 +178,10 @@ func (client *Client) openConnection() error {
 		return err
 	}
 
+	gatewayParts := strings.Split(client.Gateway, ":")
 	conf := &tls.Config{
 		Certificates: []tls.Certificate{client.certificate},
+		ServerName:   gatewayParts[0],
 	}
 
 	conn, err := net.Dial("tcp", client.Gateway)
