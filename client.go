@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+var _ APNSClient = &Client{}
+
+// APNSClient is an APNS client.
+type APNSClient interface {
+	ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error)
+	Send(pn *PushNotification) (resp *PushNotificationResponse)
+}
+
 // Client contains the fields necessary to communicate
 // with Apple, such as the gateway to use and your
 // certificate contents.
@@ -100,7 +108,7 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	gatewayParts := strings.Split(client.Gateway, ":")
 	conf := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ServerName: gatewayParts[0],
+		ServerName:   gatewayParts[0],
 	}
 
 	conn, err := net.Dial("tcp", client.Gateway)

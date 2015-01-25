@@ -57,7 +57,7 @@ func (client *Client) ListenForFeedback() (err error) {
 	gatewayParts := strings.Split(client.Gateway, ":")
 	conf := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ServerName: gatewayParts[0],
+		ServerName:   gatewayParts[0],
 	}
 
 	conn, err := net.Dial("tcp", client.Gateway)
