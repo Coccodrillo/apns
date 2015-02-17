@@ -13,8 +13,9 @@ import (
 // Push commands always start with command value 1.
 const PUSH_COMMAND_VALUE = 1
 
-// Your total notification payload cannot exceed 256 bytes.
-const MAX_PAYLOAD_SIZE_BYTES = 256
+// Your total notification payload cannot exceed 256 bytes for IOS7 and earlier, 2kb IOS8 and later.
+const MAX_PAYLOAD_SIZE_UNTIL_IOS7_BYTES = 256
+const MAX_PAYLOAD_SIZE_BYTES = 2048
 
 var lastUsedNotificationIdentifier uint32
 
@@ -33,7 +34,9 @@ func NewPayload() *Payload {
 
 // From the APN docs: "Use the ... alert dictionary in general only if you absolutely need to."
 // The AlertDictionary is suitable for specific localization needs.
+// Remember that title can be set only on IOS8.2 or greater.
 type AlertDictionary struct {
+	Title        string   `json:"title,omitempty"`
 	Body         string   `json:"body,omitempty"`
 	ActionLocKey string   `json:"action-loc-key,omitempty"`
 	LocKey       string   `json:"loc-key,omitempty"`
@@ -49,17 +52,22 @@ func NewAlertDictionary() *AlertDictionary {
 // The PushNotification is the wrapper for the Payload.
 // The length fields are computed in ToBytes() and aren't represented here.
 type PushNotification struct {
-	Identifier  uint32
-	Expiry      uint32
-	DeviceToken string
-	payload     map[string]interface{}
+	Identifier     uint32
+	Expiry         uint32
+	DeviceToken    string
+	payload        map[string]interface{}
+	maxPayloadSize int
 }
 
 // Constructor. Also initializes the pseudo-random identifier.
-func NewPushNotification() (pn *PushNotification) {
+func NewPushNotification(isIOS7OrEarlier bool) (pn *PushNotification) {
 	pn = new(PushNotification)
 	pn.payload = make(map[string]interface{})
 	pn.Identifier = atomic.AddUint32(&lastUsedNotificationIdentifier, 1)
+	pn.maxPayloadSize = MAX_PAYLOAD_SIZE_BYTES
+	if isIOS7OrEarlier {
+		pn.maxPayloadSize = MAX_PAYLOAD_SIZE_UNTIL_IOS7_BYTES
+	}
 	return
 }
 
@@ -95,8 +103,9 @@ func (this *PushNotification) ToBytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(payload) > MAX_PAYLOAD_SIZE_BYTES {
-		return nil, errors.New("payload is larger than the " + strconv.Itoa(MAX_PAYLOAD_SIZE_BYTES) + " byte limit")
+
+	if len(payload) > this.maxPayloadSize {
+		return nil, errors.New("payload is larger than the " + strconv.Itoa(this.maxPayloadSize) + " byte limit")
 	}
 
 	buffer := bytes.NewBuffer([]byte{})
