@@ -121,11 +121,13 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 			client.apnsConnection = nil
 			return err
 		}
-		if bytesWritten == 0 {
-			client.apnsConnection.Close()
-			client.apnsConnection = nil
-			return fmt.Errorf("Could not open connection to %s.  Please try again.", client.Gateway)
-		}
+	}
+
+	// re-connect if no bytes were written
+	if bytesWritten == 0 {
+		client.apnsConnection.Close()
+		client.apnsConnection = nil
+		return fmt.Errorf("Could not open connection to %s.  Please try again.", client.Gateway)
 	}
 
 	// Create one channel that will serve to handle
