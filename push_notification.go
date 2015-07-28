@@ -92,6 +92,20 @@ func (this *PushNotification) PayloadString() (string, error) {
 	return string(j), err
 }
 
+func (this *PushNotification) ExceededMaxPayload() (exceeded bool, extraLength int, err error) {
+	exceeded = false
+	payload, err := this.PayloadJSON()
+	if err != nil {
+		return
+	}
+	length := len(payload)
+	if length > this.maxPayloadSize {
+		exceeded = true
+		extraLength = length - this.maxPayloadSize
+	}
+	return
+}
+
 // Returns a byte array of the complete PushNotification struct. This array
 // is what should be transmitted to the APN Service.
 func (this *PushNotification) ToBytes() ([]byte, error) {
