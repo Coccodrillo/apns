@@ -9,6 +9,14 @@ import (
 	"time"
 )
 
+var _ APNSClient = &Client{}
+
+// APNSClient is an APNS client.
+type APNSClient interface {
+	ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error)
+	Send(pn *PushNotification) (resp *PushNotificationResponse)
+}
+
 // Client contains the fields necessary to communicate
 // with Apple, such as the gateway to use and your
 // certificate contents.

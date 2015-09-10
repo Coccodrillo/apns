@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+const testDeviceToken = "e93b7686988b4b5fd334298e60e73d90035f6d12628a80b4029bde0dec514df9"
+
 // Create a new Payload that specifies simple text,
 // a badge counter, and a custom notification sound.
 func mockPayload() (payload *Payload) {
@@ -41,12 +43,13 @@ func TestBasicAlert(t *testing.T) {
 	payload := mockPayload()
 	pn := NewPushNotification()
 
+	pn.DeviceToken = testDeviceToken
 	pn.AddPayload(payload)
 
 	bytes, _ := pn.ToBytes()
 	json, _ := pn.PayloadJSON()
-	if len(bytes) != 98 {
-		t.Error("expected 98 bytes; got", len(bytes))
+	if len(bytes) != 130 {
+		t.Error("expected 130 bytes; got", len(bytes))
 	}
 	if len(json) != 69 {
 		t.Error("expected 69 bytes; got", len(json))
@@ -59,12 +62,13 @@ func TestAlertDictionary(t *testing.T) {
 	payload.Alert = dict
 
 	pn := NewPushNotification()
+	pn.DeviceToken = testDeviceToken
 	pn.AddPayload(payload)
 
 	bytes, _ := pn.ToBytes()
 	json, _ := pn.PayloadJSON()
-	if len(bytes) != 223 {
-		t.Error("expected 223 bytes; got", len(bytes))
+	if len(bytes) != 255 {
+		t.Error("expected 255 bytes; got", len(bytes))
 	}
 	if len(json) != 194 {
 		t.Error("expected 194 bytes; got", len(bytes))
@@ -75,6 +79,7 @@ func TestCustomParameters(t *testing.T) {
 	payload := mockPayload()
 	pn := NewPushNotification()
 
+	pn.DeviceToken = testDeviceToken
 	pn.AddPayload(payload)
 	pn.Set("foo", "bar")
 
@@ -87,7 +92,7 @@ func TestCustomParameters(t *testing.T) {
 
 	bytes, _ := pn.ToBytes()
 	json, _ := pn.PayloadJSON()
-	if len(bytes) != 110 {
+	if len(bytes) != 142 {
 		t.Error("expected 110 bytes; got", len(bytes))
 	}
 	if len(json) != 81 {
