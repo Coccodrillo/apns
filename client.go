@@ -171,7 +171,7 @@ func (client *Client) getCertificate() error {
 	return err
 }
 
-// Returns a connection pool used to send message payloads.
+// getConnectionPool returns a connection pool used to send message payloads.
 func (client *Client) getConnectionPool() (*ConnectionPool, error) {
 	if client.pool != nil {
 		return client.pool, nil

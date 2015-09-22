@@ -10,6 +10,12 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+// apnsConnectionInsecureOpen is convenience method to skip certificate verification.
+func apnsConnectionInsecureOpen(c *Connection, gateway string, config *tls.Config) error {
+	config.InsecureSkipVerify = true // skip verification for the connection to accept our cert
+	return c.Open(gateway, config)
+}
+
 func TestApnsConnectionOpen(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer ts.Close()
@@ -23,25 +29,30 @@ func TestApnsConnectionOpen(t *testing.T) {
 	defer c.Close()
 
 	Convey("Open()", t, func() {
-		Convey("Fake server should return an error", func() {
-			err := c.Open("fake", config)
-			So(c.IsOpen(), ShouldBeFalse)
-			So(err, ShouldNotBeNil)
+		Convey("When an invalid gateway is given", func() {
+			Convey("Should return an error", func() {
+				err := c.Open("fake", config)
+				So(c.IsOpen(), ShouldBeFalse)
+				So(err, ShouldNotBeNil)
+			})
 		})
 
-		Convey("Server with bad certificate should return an error", func() {
-			err := c.Open(ts.URL[8:], config)
-			So(c.IsOpen(), ShouldBeFalse)
-			So(err, ShouldNotBeNil)
+		Convey("When an invalid certificate is given", func() {
+			Convey("Should return an error", func() {
+				err := c.Open(ts.URL[8:], config)
+				So(c.IsOpen(), ShouldBeFalse)
+				So(err, ShouldNotBeNil)
 
+			})
 		})
 
-		Convey("Server with good certificate should not return an error", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			err := c.Open(ts.URL[8:], config)
-			So(c.IsOpen(), ShouldBeTrue)
-			So(err, ShouldBeNil)
+		Convey("When a valid certificate is given", func() {
+			Convey("Should not return an error", func() {
+				config.InsecureSkipVerify = true // skip verification for this to accept our cert
+				err := c.Open(ts.URL[8:], config)
+				So(c.IsOpen(), ShouldBeTrue)
+				So(err, ShouldBeNil)
+			})
 		})
 	})
 }
@@ -58,43 +69,49 @@ func TestApnsConnectionIsOpen(t *testing.T) {
 	c := Connection{}
 	defer c.Close()
 
-	Convey("Open()", t, func() {
-		Convey("Should be false if we didn't open a connection", func() {
-			So(c.IsOpen(), ShouldBeFalse)
+	Convey("IsOpen()", t, func() {
+		Convey("When we didn't open a connection", func() {
+			Convey("Should return false", func() {
+				So(c.IsOpen(), ShouldBeFalse)
+			})
 		})
 
-		Convey("Should be true if we open a connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			So(c.IsOpen(), ShouldBeTrue)
+		Convey("When we open a connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+			Convey("Should return true", func() {
+				So(c.IsOpen(), ShouldBeTrue)
+			})
 		})
 
-		Convey("Should be false if the connection expires", func() {
+		Convey("When the connection expires", func() {
 			c.connectTime = c.connectTime.Add(-(keepAlive + 1) * time.Minute)
-			So(c.IsOpen(), ShouldBeFalse)
+			Convey("Should return false", func() {
+				So(c.IsOpen(), ShouldBeFalse)
+			})
 		})
 
-		Convey("Should be false if we close the connection", func() {
+		Convey("When we close the connection", func() {
 			c.Close()
-			So(c.IsOpen(), ShouldBeFalse)
+			Convey("Should return false", func() {
+				So(c.IsOpen(), ShouldBeFalse)
+			})
+
 		})
 
-		Convey("Open another connection and stop the server", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			So(c.IsOpen(), ShouldBeTrue)
-
+		Convey("When we open a connection and stop the server", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
 			ts.Close()
 
-			Convey("Should still be considered open", func() {
+			Convey("Should return true", func() {
 				So(c.IsOpen(), ShouldBeTrue)
 			})
 
-			Convey("If we force a peek, should not be open", func() {
+			Convey("When we force a peek", func() {
 				c.writeCount = peekFrequency
-				So(c.IsOpen(), ShouldBeFalse)
+				Convey("Should return false", func() {
+					So(c.IsOpen(), ShouldBeFalse)
+				})
+
 			})
 		})
 	})
@@ -113,38 +130,38 @@ func TestApnsConnectionPeek(t *testing.T) {
 	defer c.Close()
 
 	Convey("Peek()", t, func() {
-		Convey("Should return an error if we don't have a connection", func() {
-			err := c.Peek()
-			So(err, ShouldNotBeNil)
+		Convey("When we don't have a connection", func() {
+			Convey("Should return an ErrorNoConnection error", func() {
+				err := c.Peek()
+				So(err.Error(), ShouldEqual, ErrorNoConnection)
+			})
 		})
 
-		Convey("Should not return an error on an open connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			err := c.Peek()
-			So(err, ShouldBeNil)
+		Convey("When we have an open connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+			Convey("Should not return an error", func() {
+				err := c.Peek()
+				So(err, ShouldBeNil)
 
-			Convey("Should return an error if we close the connection", func() {
-				c.Close()
+				Convey("When we close the connection", func() {
+					c.Close()
+					Convey("Should return an ErrorNoConnection error", func() {
+						err := c.Peek()
+						So(err.Error(), ShouldEqual, ErrorNoConnection)
+					})
+				})
+			})
+		})
+
+		Convey("When we have an open connection to a stopped server", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+			ts.Close()
+			Convey("Should return an error", func() {
 				err := c.Peek()
 				So(err, ShouldNotBeNil)
 			})
 		})
-
-		Convey("Should return an error if we peek on an open connection with a stopped server", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-
-			ts.Close()
-
-			err := c.Peek()
-			So(err, ShouldNotBeNil)
-
-		})
 	})
-
 }
 
 func TestApnsConnectionClose(t *testing.T) {
@@ -160,23 +177,24 @@ func TestApnsConnectionClose(t *testing.T) {
 	defer c.Close()
 
 	Convey("Close()", t, func() {
-		Convey("Should not return an error if we don't have a connection", func() {
-			err := c.Close()
-			So(err, ShouldBeNil)
+		Convey("When we don't have an open connection", func() {
+			Convey("Should not return an error", func() {
+				err := c.Close()
+				So(err, ShouldBeNil)
+			})
 		})
 
-		Convey("Should not return an error with an open connection, and reset our stats", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
+		Convey("When we have an open connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
 			c.writeCount = 10
-			err := c.Close()
-			So(err, ShouldBeNil)
-			So(c.writeCount, ShouldEqual, 0)
-			So(c.connectTime, ShouldResemble, time.Time{})
+			Convey("Should not return an error and reset our stats", func() {
+				err := c.Close()
+				So(err, ShouldBeNil)
+				So(c.writeCount, ShouldEqual, 0)
+				So(c.connectTime, ShouldResemble, time.Time{})
+			})
 		})
 	})
-
 }
 
 func TestApnsConnectionRead(t *testing.T) {
@@ -194,21 +212,24 @@ func TestApnsConnectionRead(t *testing.T) {
 	buffer := make([]byte, 1, 1)
 
 	Convey("Read()", t, func() {
-		Convey("Should return an error if we don't have a connection", func() {
-			_, err := c.Read(buffer)
-			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldEqual, "no connection")
+		Convey("When we don't have an open connection", func() {
+			Convey("Should return an ErrorNoConnection error", func() {
+				_, err := c.Read(buffer)
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, ErrorNoConnection)
+			})
 		})
 
-		Convey("Should timeout on an open connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
+		Convey("When we have an open connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
 			c.connection.SetReadDeadline(time.Now().Add(time.Duration(10) * time.Millisecond))
-			_, err := c.Read(buffer)
-			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldContainSubstring, "i/o timeout")
+			Convey("Should return a timeout error", func() {
+				_, err := c.Read(buffer)
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldContainSubstring, "i/o timeout")
+			})
 		})
+
 	})
 }
 
@@ -225,19 +246,21 @@ func TestApnsConnectionWrite(t *testing.T) {
 	defer c.Close()
 
 	Convey("Write()", t, func() {
-		Convey("Should return an error if we don't have a connection", func() {
-			_, err := c.Write([]byte("test"))
-			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldEqual, "no connection")
+		Convey("When we don't have an open connection", func() {
+			Convey("Should return an ErrorNoConnection error", func() {
+				_, err := c.Write([]byte("test"))
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, ErrorNoConnection)
+			})
 		})
 
-		Convey("Should write the expected bytes on an open connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			n, err := c.Write([]byte("test"))
-			So(err, ShouldBeNil)
-			So(n, ShouldEqual, 4)
+		Convey("When we have an open connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+			Convey("Should return the expected bytes written", func() {
+				n, err := c.Write([]byte("test"))
+				So(err, ShouldBeNil)
+				So(n, ShouldEqual, 4)
+			})
 		})
 	})
 }
@@ -255,17 +278,19 @@ func TestApnsConnectionLocalAddr(t *testing.T) {
 	defer c.Close()
 
 	Convey("LocalAddr()", t, func() {
-		Convey("Should return nil if we don't have a connection", func() {
-			a := c.LocalAddr()
-			So(a, ShouldBeNil)
+		Convey("When we don't have an open connection", func() {
+			Convey("Should return nil", func() {
+				a := c.LocalAddr()
+				So(a, ShouldBeNil)
+			})
 		})
 
-		Convey("Should not return nil on an open connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			a := c.LocalAddr()
-			So(a, ShouldNotBeNil)
+		Convey("When we have an open connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+			Convey("Should not return nil", func() {
+				a := c.LocalAddr()
+				So(a, ShouldNotBeNil)
+			})
 		})
 	})
 }
@@ -283,17 +308,18 @@ func TestApnsConnectionRemoteAddr(t *testing.T) {
 	defer c.Close()
 
 	Convey("RemoteAddr()", t, func() {
-		Convey("Should return nil if we don't have a connection", func() {
-			a := c.RemoteAddr()
-			So(a, ShouldBeNil)
+		Convey("When we don't have an open connection", func() {
+			Convey("Should return nil", func() {
+				a := c.RemoteAddr()
+				So(a, ShouldBeNil)
+			})
 		})
-
-		Convey("Should not return nil on an open connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			a := c.RemoteAddr()
-			So(a, ShouldNotBeNil)
+		Convey("When we have an open connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+			Convey("Should not return nil", func() {
+				a := c.RemoteAddr()
+				So(a, ShouldNotBeNil)
+			})
 		})
 	})
 }
@@ -311,18 +337,20 @@ func TestApnsConnectionSetDeadline(t *testing.T) {
 	defer c.Close()
 
 	Convey("SetDeadline()", t, func() {
-		Convey("Should return an error if we don't have a connection", func() {
-			err := c.SetDeadline(time.Now())
-			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldEqual, "no connection")
+		Convey("When we don't have an open connection", func() {
+			Convey("Should return an ErrorNoConnection error", func() {
+				err := c.SetDeadline(time.Now())
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, ErrorNoConnection)
+			})
 		})
 
-		Convey("Should not return an error on an open connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			err := c.SetDeadline(time.Now())
-			So(err, ShouldBeNil)
+		Convey("When we have an open connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+			Convey("Should return nil ", func() {
+				err := c.SetDeadline(time.Now())
+				So(err, ShouldBeNil)
+			})
 		})
 	})
 }
@@ -340,18 +368,20 @@ func TestApnsConnectionSetReadDeadline(t *testing.T) {
 	defer c.Close()
 
 	Convey("SetReadDeadline()", t, func() {
-		Convey("Should return an error if we don't have a connection", func() {
-			err := c.SetReadDeadline(time.Now())
-			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldEqual, "no connection")
+		Convey("When we don't have an open connection", func() {
+			Convey("Should return an ErrorNoConnection error", func() {
+				err := c.SetReadDeadline(time.Now())
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, ErrorNoConnection)
+			})
 		})
 
-		Convey("Should not return an error on an open connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			err := c.SetReadDeadline(time.Now())
-			So(err, ShouldBeNil)
+		Convey("When we have an open connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+			Convey("Should return nil", func() {
+				err := c.SetReadDeadline(time.Now())
+				So(err, ShouldBeNil)
+			})
 		})
 	})
 }
@@ -369,18 +399,20 @@ func TestApnsConnectionSetWriteDeadline(t *testing.T) {
 	defer c.Close()
 
 	Convey("SetWriteDeadline()", t, func() {
-		Convey("Should return an error if we don't have a connection", func() {
-			err := c.SetWriteDeadline(time.Now())
-			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldEqual, "no connection")
+		Convey("When we don't have an open connection", func() {
+			Convey("Should return an ErrorNoConnection error", func() {
+				err := c.SetWriteDeadline(time.Now())
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, ErrorNoConnection)
+			})
 		})
 
-		Convey("Should not return an error on an open connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			err := c.SetWriteDeadline(time.Now())
-			So(err, ShouldBeNil)
+		Convey("When we have an open connection", func() {
+			apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+			Convey("Should return nil", func() {
+				err := c.SetWriteDeadline(time.Now())
+				So(err, ShouldBeNil)
+			})
 		})
 	})
 }
@@ -398,17 +430,19 @@ func TestApnsConnectionConnectionState(t *testing.T) {
 	defer c.Close()
 
 	Convey("ConnectionState()", t, func() {
-		Convey("Should return an empty tls.ConnectionState if we don't have a connection", func() {
-			s := c.ConnectionState()
-			So(s, ShouldResemble, tls.ConnectionState{})
+		Convey("When we don't have an open connection", func() {
+			Convey("Should return an empty tls.ConnectionState", func() {
+				s := c.ConnectionState()
+				So(s, ShouldResemble, tls.ConnectionState{})
+			})
 		})
 
-		Convey("Should not return an empty tls.ConnectionState on an open connection", func() {
-			// need to skip verification for this to accept our cert
-			config.InsecureSkipVerify = true
-			c.Open(ts.URL[8:], config)
-			s := c.ConnectionState()
-			So(s, ShouldNotResemble, tls.ConnectionState{})
+		Convey("When we have an open connection", func() {
+			Convey("Should return a non-empty tls.ConnectionState ", func() {
+				apnsConnectionInsecureOpen(&c, ts.URL[8:], config)
+				s := c.ConnectionState()
+				So(s, ShouldNotResemble, tls.ConnectionState{})
+			})
 		})
 	})
 }
