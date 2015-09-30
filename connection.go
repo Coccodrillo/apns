@@ -10,12 +10,13 @@ import (
 )
 
 const (
-	handShakeTimeout  = 5   // seconds
-	peekTimeout       = 250 // miliseconds
-	peekFrequency     = 25  // every N writes
-	keepAlive         = 10  // minutes
-	ErrorNoConnection = "no connection"
+	handShakeTimeout = 5   // seconds
+	peekTimeout      = 250 // miliseconds
+	peekFrequency    = 25  // every N writes
+	keepAlive        = 10  // minutes
 )
+
+var ErrNoConnection = errors.New("no connection")
 
 type Connection struct {
 	connection  *tls.Conn
@@ -72,7 +73,7 @@ func (c *Connection) IsOpen() bool {
 
 func (c *Connection) Peek() error {
 	if c.connection == nil {
-		return errors.New(ErrorNoConnection)
+		return ErrNoConnection
 	}
 
 	// attempt to peek at one byte
@@ -106,14 +107,14 @@ func (c *Connection) Close() error {
 
 func (c *Connection) Read(b []byte) (n int, err error) {
 	if !c.IsOpen() {
-		return 0, errors.New(ErrorNoConnection)
+		return 0, ErrNoConnection
 	}
 	return c.connection.Read(b)
 }
 
 func (c *Connection) Write(b []byte) (n int, err error) {
 	if !c.IsOpen() {
-		return 0, errors.New(ErrorNoConnection)
+		return 0, ErrNoConnection
 	}
 
 	c.writeCount++
@@ -136,21 +137,21 @@ func (c *Connection) RemoteAddr() net.Addr {
 
 func (c *Connection) SetDeadline(t time.Time) error {
 	if !c.IsOpen() {
-		return errors.New(ErrorNoConnection)
+		return ErrNoConnection
 	}
 	return c.connection.SetDeadline(t)
 }
 
 func (c *Connection) SetReadDeadline(t time.Time) error {
 	if !c.IsOpen() {
-		return errors.New(ErrorNoConnection)
+		return ErrNoConnection
 	}
 	return c.connection.SetReadDeadline(t)
 }
 
 func (c *Connection) SetWriteDeadline(t time.Time) error {
 	if !c.IsOpen() {
-		return errors.New(ErrorNoConnection)
+		return ErrNoConnection
 	}
 	return c.connection.SetWriteDeadline(t)
 }

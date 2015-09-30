@@ -131,9 +131,9 @@ func TestApnsConnectionPeek(t *testing.T) {
 
 	Convey("Peek()", t, func() {
 		Convey("When we don't have a connection", func() {
-			Convey("Should return an ErrorNoConnection error", func() {
+			Convey("Should return an ErrNoConnection error", func() {
 				err := c.Peek()
-				So(err.Error(), ShouldEqual, ErrorNoConnection)
+				So(err, ShouldEqual, ErrNoConnection)
 			})
 		})
 
@@ -145,9 +145,9 @@ func TestApnsConnectionPeek(t *testing.T) {
 
 				Convey("When we close the connection", func() {
 					c.Close()
-					Convey("Should return an ErrorNoConnection error", func() {
+					Convey("Should return an ErrNoConnection error", func() {
 						err := c.Peek()
-						So(err.Error(), ShouldEqual, ErrorNoConnection)
+						So(err, ShouldEqual, ErrNoConnection)
 					})
 				})
 			})
@@ -213,10 +213,10 @@ func TestApnsConnectionRead(t *testing.T) {
 
 	Convey("Read()", t, func() {
 		Convey("When we don't have an open connection", func() {
-			Convey("Should return an ErrorNoConnection error", func() {
+			Convey("Should return an ErrNoConnection error", func() {
 				_, err := c.Read(buffer)
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, ErrorNoConnection)
+				So(err, ShouldEqual, ErrNoConnection)
 			})
 		})
 
@@ -247,10 +247,10 @@ func TestApnsConnectionWrite(t *testing.T) {
 
 	Convey("Write()", t, func() {
 		Convey("When we don't have an open connection", func() {
-			Convey("Should return an ErrorNoConnection error", func() {
+			Convey("Should return an ErrNoConnection error", func() {
 				_, err := c.Write([]byte("test"))
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, ErrorNoConnection)
+				So(err, ShouldEqual, ErrNoConnection)
 			})
 		})
 
@@ -338,10 +338,10 @@ func TestApnsConnectionSetDeadline(t *testing.T) {
 
 	Convey("SetDeadline()", t, func() {
 		Convey("When we don't have an open connection", func() {
-			Convey("Should return an ErrorNoConnection error", func() {
+			Convey("Should return an ErrNoConnection error", func() {
 				err := c.SetDeadline(time.Now())
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, ErrorNoConnection)
+				So(err, ShouldEqual, ErrNoConnection)
 			})
 		})
 
@@ -369,10 +369,10 @@ func TestApnsConnectionSetReadDeadline(t *testing.T) {
 
 	Convey("SetReadDeadline()", t, func() {
 		Convey("When we don't have an open connection", func() {
-			Convey("Should return an ErrorNoConnection error", func() {
+			Convey("Should return an ErrNoConnection error", func() {
 				err := c.SetReadDeadline(time.Now())
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, ErrorNoConnection)
+				So(err, ShouldEqual, ErrNoConnection)
 			})
 		})
 
@@ -400,10 +400,10 @@ func TestApnsConnectionSetWriteDeadline(t *testing.T) {
 
 	Convey("SetWriteDeadline()", t, func() {
 		Convey("When we don't have an open connection", func() {
-			Convey("Should return an ErrorNoConnection error", func() {
+			Convey("Should return an ErrNoConnection error", func() {
 				err := c.SetWriteDeadline(time.Now())
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, ErrorNoConnection)
+				So(err, ShouldEqual, ErrNoConnection)
 			})
 		})
 
