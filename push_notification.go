@@ -14,7 +14,7 @@ import (
 // Push commands always start with command value 2.
 const pushCommandValue = 2
 
-// Your total notification payload cannot exceed 2KB (starting with iOS 8).
+// Your total notification payload cannot exceed 2 KB.
 const MaxPayloadSizeBytes = 2048
 
 // Every push notification gets a pseudo-unique identifier;
@@ -40,10 +40,11 @@ const (
 // Alert is an interface here because it supports either a string
 // or a dictionary, represented within by an AlertDictionary struct.
 type Payload struct {
-	Alert    interface{} `json:"alert,omitempty"`
-	Badge    int         `json:"badge,omitempty"`
-	Sound    string      `json:"sound,omitempty"`
-	Category string      `json:"category,omitempty"`
+	Alert            interface{} `json:"alert,omitempty"`
+	Badge            int         `json:"badge,omitempty"`
+	Sound            string      `json:"sound,omitempty"`
+	ContentAvailable int         `json:"content-available,omitempty"`
+	Category         string      `json:"category,omitempty"`
 }
 
 // NewPayload creates and returns a Payload structure.
@@ -137,6 +138,9 @@ func (pn *PushNotification) ToBytes() ([]byte, error) {
 	token, err := hex.DecodeString(pn.DeviceToken)
 	if err != nil {
 		return nil, err
+	}
+	if len(token) != deviceTokenLength {
+		return nil, errors.New("device token has incorrect length")
 	}
 	payload, err := pn.PayloadJSON()
 	if err != nil {

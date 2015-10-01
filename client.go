@@ -3,11 +3,20 @@ package apns
 import (
 	"crypto/tls"
 	"errors"
-	"fmt"
-	"net"
-	"strings"
 	"time"
 )
+
+const (
+	numConnections = 5 // number of connections in the collection pool
+)
+
+var _ APNSClient = &Client{}
+
+// APNSClient is an APNS client.
+type APNSClient interface {
+	ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error)
+	Send(pn *PushNotification) (resp *PushNotificationResponse)
+}
 
 // Client contains the fields necessary to communicate
 // with Apple, such as the gateway to use and your
@@ -27,6 +36,7 @@ type Client struct {
 	KeyBase64         string
 	certificate       tls.Certificate
 	apnsConnection    *tls.Conn
+	pool              *ConnectionPool
 }
 
 // BareClient can be used to set the contents of your
@@ -86,48 +96,16 @@ func (client *Client) Send(pn *PushNotification) (resp *PushNotificationResponse
 // possible to get a false positive if Apple takes a long time to respond.
 // It's probably not a deal-breaker, but something to be aware of.
 func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) error {
-	var bytesWritten int
-	var err error
-
-	if client.apnsConnection == nil {
-		// We want to re-establish the connection to APNS after a number of messages sent
-		err = client.openConnection()
-		if err != nil {
-			return err
-		}
-	}
-
-	bytesWritten, err = client.apnsConnection.Write(payload)
+	// Get the connection pool
+	p, err := client.getConnectionPool()
 	if err != nil {
-		if err.Error() != "use of closed network connection" && err.Error() != "EOF" && !strings.Contains(err.Error(), "broken pipe") && err.Error() != "connection reset by peer" {
-			if client.apnsConnection != nil {
-				client.apnsConnection.Close()
-			}
-			client.apnsConnection = nil
-			return err
-		}
-
-		// If the connection is closed, reconnect
-		err = client.openConnection()
-		if err != nil {
-			return err
-		}
-
-		bytesWritten, err = client.apnsConnection.Write(payload)
-		if err != nil {
-			if client.apnsConnection != nil {
-				client.apnsConnection.Close()
-			}
-			client.apnsConnection = nil
-			return err
-		}
+		return err
 	}
 
-	// re-connect if no bytes were written
-	if bytesWritten == 0 {
-		client.apnsConnection.Close()
-		client.apnsConnection = nil
-		return fmt.Errorf("Could not open connection to %s.  Please try again.", client.Gateway)
+	// Attempt to write to the pool
+	c, _, err := p.Write(payload)
+	if err != nil {
+		return err
 	}
 
 	// Create one channel that will serve to handle
@@ -143,7 +121,13 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	responseChannel := make(chan []byte, 1)
 	go func() {
 		buffer := make([]byte, 6, 6)
-		client.apnsConnection.Read(buffer)
+		_, err := c.Read(buffer)
+
+		// on read error, close the connection
+		if err != nil {
+			c.Close()
+		}
+
 		responseChannel <- buffer
 	}()
 
@@ -162,43 +146,10 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 		err = errors.New(resp.AppleResponse)
 	case <-timeoutChannel:
 		resp.Success = true
+		err = nil
 	}
 
 	return err
-}
-
-// Opens a connection to the Apple APNS server
-// The connection is created and persisted to the client's apnsConnection property
-//	to save on the overhead of the crypto libraries.
-func (client *Client) openConnection() error {
-	if client.apnsConnection != nil {
-		client.apnsConnection.Close()
-	}
-
-	err := client.getCertificate()
-	if err != nil {
-		return err
-	}
-
-	gatewayParts := strings.Split(client.Gateway, ":")
-	conf := &tls.Config{
-		Certificates: []tls.Certificate{client.certificate},
-		ServerName:   gatewayParts[0],
-	}
-
-	conn, err := net.Dial("tcp", client.Gateway)
-	if err != nil {
-		return err
-	}
-
-	tlsConn := tls.Client(conn, conf)
-	err = tlsConn.Handshake()
-	if err != nil {
-		return err
-	}
-
-	client.apnsConnection = tlsConn
-	return nil
 }
 
 // Returns a certificate to use to send the notification.
@@ -218,4 +169,20 @@ func (client *Client) getCertificate() error {
 	}
 
 	return err
+}
+
+// getConnectionPool returns a connection pool used to send message payloads.
+func (client *Client) getConnectionPool() (*ConnectionPool, error) {
+	if client.pool != nil {
+		return client.pool, nil
+	}
+
+	err := client.getCertificate()
+	if err != nil {
+		return nil, err
+	} else {
+		client.pool = NewConnectionPool(numConnections, client.Gateway, client.certificate)
+	}
+
+	return client.pool, err
 }
