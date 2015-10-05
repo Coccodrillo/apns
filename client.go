@@ -2,7 +2,7 @@ package apns
 
 import (
 	"crypto/tls"
-	"errors"
+	"log"
 	"time"
 )
 
@@ -108,48 +108,13 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 		return err
 	}
 
-	// Create one channel that will serve to handle
-	// timeouts when the notification succeeds.
-	timeoutChannel := make(chan bool, 1)
-	go func() {
-		time.Sleep(time.Second * TimeoutSeconds)
-		timeoutChannel <- true
-	}()
+	// try to get a response
+	go client.getResponse(c)
 
-	// This channel will contain the binary response
-	// from Apple in the event of a failure.
-	responseChannel := make(chan []byte, 1)
-	go func() {
-		buffer := make([]byte, 6, 6)
-		_, err := c.Read(buffer)
+	// assume success, we'll log any errors
+	resp.Success = true
 
-		// on read error, close the connection
-		if err != nil {
-			c.Close()
-		}
-
-		responseChannel <- buffer
-	}()
-
-	// First one back wins!
-	// The data structure for an APN response is as follows:
-	//
-	// command    -> 1 byte
-	// status     -> 1 byte
-	// identifier -> 4 bytes
-	//
-	// The first byte will always be set to 8.
-	select {
-	case r := <-responseChannel:
-		resp.Success = false
-		resp.AppleResponse = ApplePushResponses[r[1]]
-		err = errors.New(resp.AppleResponse)
-	case <-timeoutChannel:
-		resp.Success = true
-		err = nil
-	}
-
-	return err
+	return nil
 }
 
 // Returns a certificate to use to send the notification.
@@ -185,4 +150,50 @@ func (client *Client) getConnectionPool() (*ConnectionPool, error) {
 	}
 
 	return client.pool, err
+}
+
+// getResponse attempts to read the response apns from the given connection.
+// On error, will print the response.
+func (client *Client) getResponse(c *Connection) {
+	// Create one channel that will serve to handle
+	// timeouts when the notification succeeds.
+	timeoutChannel := make(chan bool, 1)
+	go func() {
+		time.Sleep(time.Second * TimeoutSeconds)
+		timeoutChannel <- true
+	}()
+
+	// This channel will contain the binary response
+	// from Apple in the event of a failure.
+	responseChannel := make(chan []byte, 1)
+	go func() {
+		buffer := make([]byte, 6, 6)
+		_, err := c.Read(buffer)
+
+		// on read error, close the connection
+		if err != nil {
+			c.Close()
+		}
+
+		responseChannel <- buffer
+	}()
+
+	// First one back wins!
+	// The data structure for an APN response is as follows:
+	//
+	// command    -> 1 byte
+	// status     -> 1 byte
+	// identifier -> 4 bytes
+	//
+	// The first byte will always be set to 8.
+	select {
+	case r := <-responseChannel:
+		if r[1] != 0 {
+			response := ApplePushResponses[r[1]]
+			if response != "NO_ERRORS" {
+				log.Printf("APNS error: %s\n", response)
+			}
+		}
+	case <-timeoutChannel:
+	}
 }
