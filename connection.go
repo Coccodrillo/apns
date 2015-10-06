@@ -6,22 +6,25 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync"
 	"time"
 )
 
 const (
 	handShakeTimeout = 5   // seconds
-	peekTimeout      = 250 // miliseconds
-	peekFrequency    = 25  // every N writes
+	peekTimeout      = 500 // milliseconds
+	peekFrequency    = 100 // every N writes
 	keepAlive        = 10  // minutes
 )
 
 var ErrNoConnection = errors.New("no connection")
 
 type Connection struct {
-	connection  *tls.Conn
-	writeCount  int
-	connectTime time.Time
+	connection    *tls.Conn
+	writeCount    int
+	connectTime   time.Time
+	peekOnce      sync.Once
+	peekWaitGroup sync.WaitGroup
 }
 
 type Connectioner interface {
@@ -63,7 +66,30 @@ func (c *Connection) IsOpen() bool {
 
 	// should we check if the connection is still alive?
 	if c.writeCount > 0 && c.writeCount%peekFrequency == 0 {
-		if err := c.Peek(); err != nil {
+		peekResult := true
+		peekOnceReset := false
+
+		// we only want one routine running this at a time
+		c.peekWaitGroup.Add(1)
+		c.peekOnce.Do(func() {
+			peekOnceReset = true
+			if err := c.Peek(); err != nil {
+				peekResult = false
+			} else {
+				peekResult = true
+			}
+		})
+		c.peekWaitGroup.Done()
+
+		// on reset, wait for all of the once.Do() to finish
+		// otherwise they'll block indefinitely if we reset it
+		if peekOnceReset {
+			c.peekWaitGroup.Wait()
+			c.peekOnce = sync.Once{}
+		}
+
+		// another routine may have closed the connect, so double check
+		if !peekResult || c.connection == nil {
 			return false
 		}
 	}
@@ -76,16 +102,31 @@ func (c *Connection) Peek() error {
 		return ErrNoConnection
 	}
 
-	// attempt to peek at one byte
-	// if we get an EOF, close the connection
-	reader := bufio.NewReader(c.connection)
-	c.connection.SetReadDeadline(time.Now().Add(time.Duration(peekTimeout) * time.Millisecond))
-	if _, err := reader.Peek(1); err == io.EOF {
-		c.Close()
-		return err
-	}
+	// wait a set time for a response
+	timeoutChannel := make(chan bool, 1)
+	go func() {
+		time.Sleep(peekTimeout * time.Millisecond)
+		timeoutChannel <- true
+	}()
 
-	c.connection.SetReadDeadline(time.Time{})
+	// try to peek at one byte on the connection
+	// only consider an io.EOF a failure
+	responseChannel := make(chan bool, 1)
+	go func() {
+		reader := bufio.NewReader(c.connection)
+		_, err := reader.Peek(1)
+		responseChannel <- err != io.EOF
+	}()
+
+	// wait for our channels, and if the response channel is false, close the connection
+	select {
+	case r := <-responseChannel:
+		if !r {
+			c.Close()
+			return io.EOF
+		}
+	case <-timeoutChannel:
+	}
 
 	return nil
 }
