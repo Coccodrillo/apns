@@ -4,14 +4,16 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 type ConnectionPool struct {
-	size        int
-	position    int
-	gateway     string
-	config      *tls.Config
-	connections []*Connection
+	size          int
+	position      int
+	positionMutex sync.Mutex
+	gateway       string
+	config        *tls.Config
+	connections   []*Connection
 }
 
 func NewConnectionPool(numConnections int, gateway string, certificate tls.Certificate) *ConnectionPool {
@@ -37,14 +39,21 @@ func NewConnectionPool(numConnections int, gateway string, certificate tls.Certi
 }
 
 func (p *ConnectionPool) GetConnection() (*Connection, error) {
+	// increment the position, but ensure only one routine is doing this at a time
+	// otherwise, we may go out of range when getting our connection
+	p.positionMutex.Lock()
+
 	// our position is 1 to size
 	p.position++
 	if p.position > p.size {
 		p.position = 1
 	}
 
-	var err error
 	c := p.connections[p.position-1]
+
+	p.positionMutex.Unlock()
+
+	var err error
 	if !c.IsOpen() {
 		err = c.Open(p.gateway, p.config)
 	}
