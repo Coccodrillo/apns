@@ -1,8 +1,6 @@
 package apns
 
-import (
-	"testing"
-)
+import "testing"
 
 const testDeviceToken = "e93b7686988b4b5fd334298e60e73d90035f6d12628a80b4029bde0dec514df9"
 
@@ -31,6 +29,9 @@ func mockAlertDictionary() (dict *AlertDictionary) {
 	args[0] = "localized args"
 
 	dict = NewAlertDictionary()
+	dict.Title = "Title"
+	dict.TitleLocKey = "localized  key"
+	dict.TitleLocArgs = args
 	dict.Body = "Complex Message"
 	dict.ActionLocKey = "Play a Game!"
 	dict.LocKey = "localized key"
@@ -67,11 +68,11 @@ func TestAlertDictionary(t *testing.T) {
 
 	bytes, _ := pn.ToBytes()
 	json, _ := pn.PayloadJSON()
-	if len(bytes) != 255 {
-		t.Error("expected 255 bytes; got", len(bytes))
+	if len(bytes) != 340 {
+		t.Error("expected 340 bytes; got", len(bytes))
 	}
-	if len(json) != 194 {
-		t.Error("expected 194 bytes; got", len(bytes))
+	if len(json) != 279 {
+		t.Error("expected 279 bytes; got", len(json))
 	}
 }
 
