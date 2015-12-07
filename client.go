@@ -2,10 +2,12 @@ package apns
 
 import (
 	"crypto/tls"
-	"errors"
-	"net"
-	"strings"
+	"log"
 	"time"
+)
+
+const (
+	numConnections = 5 // number of connections in the collection pool
 )
 
 var _ APNSClient = &Client{}
@@ -32,6 +34,9 @@ type Client struct {
 	CertificateBase64 string
 	KeyFile           string
 	KeyBase64         string
+	certificate       tls.Certificate
+	apnsConnection    *tls.Conn
+	pool              *ConnectionPool
 }
 
 // BareClient can be used to set the contents of your
@@ -90,45 +95,66 @@ func (client *Client) Send(pn *PushNotification) (resp *PushNotificationResponse
 // Whichever channel puts data on first is the "winner". As such, it's
 // possible to get a false positive if Apple takes a long time to respond.
 // It's probably not a deal-breaker, but something to be aware of.
-func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) (err error) {
-	var cert tls.Certificate
+func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []byte) error {
+	// Get the connection pool
+	p, err := client.getConnectionPool()
+	if err != nil {
+		return err
+	}
 
-	if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
-		// The user did not specify raw block contents, so check the filesystem.
-		cert, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
+	// Attempt to write to the pool
+	c, _, err := p.Write(payload)
+	if err != nil {
+		return err
+	}
+
+	// try to get a response
+	go client.getResponse(c)
+
+	// assume success, we'll log any errors
+	resp.Success = true
+
+	return nil
+}
+
+// Returns a certificate to use to send the notification.
+// The certificate is only created once to save on
+// the overhead of the crypto libraries.
+func (client *Client) getCertificate() error {
+	var err error
+
+	if client.certificate.PrivateKey == nil {
+		if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
+			// The user did not specify raw block contents, so check the filesystem.
+			client.certificate, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
+		} else {
+			// The user provided the raw block contents, so use that.
+			client.certificate, err = tls.X509KeyPair([]byte(client.CertificateBase64), []byte(client.KeyBase64))
+		}
+	}
+
+	return err
+}
+
+// getConnectionPool returns a connection pool used to send message payloads.
+func (client *Client) getConnectionPool() (*ConnectionPool, error) {
+	if client.pool != nil {
+		return client.pool, nil
+	}
+
+	err := client.getCertificate()
+	if err != nil {
+		return nil, err
 	} else {
-		// The user provided the raw block contents, so use that.
-		cert, err = tls.X509KeyPair([]byte(client.CertificateBase64), []byte(client.KeyBase64))
+		client.pool = NewConnectionPool(numConnections, client.Gateway, client.certificate)
 	}
 
-	if err != nil {
-		return err
-	}
+	return client.pool, err
+}
 
-	gatewayParts := strings.Split(client.Gateway, ":")
-	conf := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ServerName:   gatewayParts[0],
-	}
-
-	conn, err := net.Dial("tcp", client.Gateway)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	tlsConn := tls.Client(conn, conf)
-	err = tlsConn.Handshake()
-	if err != nil {
-		return err
-	}
-	defer tlsConn.Close()
-
-	_, err = tlsConn.Write(payload)
-	if err != nil {
-		return err
-	}
-
+// getResponse attempts to read the response apns from the given connection.
+// On error, will print the response.
+func (client *Client) getResponse(c *Connection) {
 	// Create one channel that will serve to handle
 	// timeouts when the notification succeeds.
 	timeoutChannel := make(chan bool, 1)
@@ -142,7 +168,13 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	responseChannel := make(chan []byte, 1)
 	go func() {
 		buffer := make([]byte, 6, 6)
-		tlsConn.Read(buffer)
+		_, err := c.Read(buffer)
+
+		// on read error, close the connection
+		if err != nil {
+			c.Close()
+		}
+
 		responseChannel <- buffer
 	}()
 
@@ -156,12 +188,12 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	// The first byte will always be set to 8.
 	select {
 	case r := <-responseChannel:
-		resp.Success = false
-		resp.AppleResponse = ApplePushResponses[r[1]]
-		err = errors.New(resp.AppleResponse)
+		if r[1] != 0 {
+			response := ApplePushResponses[r[1]]
+			if response != "NO_ERRORS" {
+				log.Printf("APNS error: %s\n", response)
+			}
+		}
 	case <-timeoutChannel:
-		resp.Success = true
 	}
-
-	return err
 }
