@@ -1,4 +1,4 @@
-package apns
+package mock
 
 import (
 	"bytes"
