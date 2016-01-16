@@ -1,9 +1,10 @@
-package apns
+package mock
 
 import (
 	"errors"
 	"testing"
 
+	. "github.com/Coccodrillo/apns"
 	"github.com/stretchr/testify/assert"
 )
 

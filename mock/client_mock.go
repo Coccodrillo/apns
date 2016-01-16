@@ -1,6 +1,9 @@
-package apns
+package mock
 
-import "github.com/stretchr/testify/mock"
+import (
+	. "github.com/Coccodrillo/apns"
+	"github.com/stretchr/testify/mock"
+)
 
 type MockClient struct {
 	mock.Mock
