@@ -9,6 +9,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"log"
 )
 
 // Wait at most this many seconds for feedback data from Apple.
@@ -78,11 +79,18 @@ func (client *Client) ListenForFeedback() (err error) {
 	deviceToken := make([]byte, 32, 32)
 
 	for {
-		_, err := tlsConn.Read(buffer)
+		en, err := tlsConn.Read(buffer)
+		log.Println(en)
+		log.Println(err)
+		/*
 		if err != nil {
+			log.Println(err)
 			ShutdownChannel <- true
 			break
 		}
+		*/
+		log.Println("hiehi")
+		time.Sleep(time.Second)
 
 		resp := NewFeedbackResponse()
 
@@ -91,7 +99,9 @@ func (client *Client) ListenForFeedback() (err error) {
 		binary.Read(r, binary.BigEndian, &tokenLength)
 		binary.Read(r, binary.BigEndian, &deviceToken)
 		if tokenLength != 32 {
-			return errors.New("token length should be equal to 32, but isn't")
+			log.Println("errer")
+			errors.New("token length should be equal to 32, but isn't")
+			//return errors.New("token length should be equal to 32, but isn't")
 		}
 		resp.DeviceToken = hex.EncodeToString(deviceToken)
 

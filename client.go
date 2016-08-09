@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"log"
 )
 
 var _ APNSClient = &Client{}
@@ -156,12 +157,51 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	// The first byte will always be set to 8.
 	select {
 	case r := <-responseChannel:
+		log.Println("response")
 		resp.Success = false
 		resp.AppleResponse = ApplePushResponses[r[1]]
+		log.Println(resp.AppleResponse)
+		log.Println(r)
 		err = errors.New(resp.AppleResponse)
 	case <-timeoutChannel:
+		log.Println("timeout")
 		resp.Success = true
 	}
 
 	return err
+}
+
+func (client *Client) GetConn() (conn net.Conn, apn *tls.Conn, err error) {
+	var cert tls.Certificate
+
+	if len(client.CertificateBase64) == 0 && len(client.KeyBase64) == 0 {
+		// The user did not specify raw block contents, so check the filesystem.
+		cert, err = tls.LoadX509KeyPair(client.CertificateFile, client.KeyFile)
+	} else {
+		// The user provided the raw block contents, so use that.
+		cert, err = tls.X509KeyPair([]byte(client.CertificateBase64), []byte(client.KeyBase64))
+	}
+
+	if err != nil {
+		return
+	}
+
+	gatewayParts := strings.Split(client.Gateway, ":")
+	conf := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ServerName:   gatewayParts[0],
+	}
+
+	conn, err = net.Dial("tcp", client.Gateway)
+	if err != nil {
+		return
+	}
+
+	apn = tls.Client(conn, conf)
+	err = apn.Handshake()
+	if err != nil {
+		return
+	}
+	return
+
 }
