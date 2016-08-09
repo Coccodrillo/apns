@@ -6,7 +6,6 @@ import (
 	"net"
 	"strings"
 	"time"
-	"log"
 )
 
 var _ APNSClient = &Client{}
@@ -157,14 +156,10 @@ func (client *Client) ConnectAndWrite(resp *PushNotificationResponse, payload []
 	// The first byte will always be set to 8.
 	select {
 	case r := <-responseChannel:
-		log.Println("response")
 		resp.Success = false
 		resp.AppleResponse = ApplePushResponses[r[1]]
-		log.Println(resp.AppleResponse)
-		log.Println(r)
 		err = errors.New(resp.AppleResponse)
 	case <-timeoutChannel:
-		log.Println("timeout")
 		resp.Success = true
 	}
 
