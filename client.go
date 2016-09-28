@@ -137,7 +137,6 @@ func (this *Client) connect() error {
 	}
 	err = tlsConn.Handshake()
 	if err != nil {
-		_ = tlsConn.Close()
 		return err
 	}
 	this.connection = tlsConn
@@ -173,9 +172,9 @@ func (this *Client) writePayloadWithRetries(payload []byte, retriesLeft int) err
 	_, err := this.connection.Write(payload)
 	if err != nil {
 		if retriesLeft == 0 {
-			this.connection.Close()
 			return err
 		}
+		this.connection.Close()
 		_ = this.connect()
 		time.Sleep(this.retryWaitDuration)
 

@@ -14,7 +14,7 @@ import (
 const PUSH_COMMAND_VALUE = 1
 
 // Your total notification payload cannot exceed 256 bytes for IOS7 and earlier, 2kb IOS8 and later.
-const MAX_PAYLOAD_SIZE_UNTIL_IOS7_BYTES = 256
+const MAX_PAYLOAD_SIZE_BEFORE_IOS8_BYTES = 256
 const MAX_PAYLOAD_SIZE_BYTES = 2048
 
 var lastUsedNotificationIdentifier uint32
@@ -22,9 +22,11 @@ var lastUsedNotificationIdentifier uint32
 // Alert is an interface here because it supports either a string
 // or a dictionary, represented within by an AlertDictionary struct.
 type Payload struct {
-	Alert interface{} `json:"alert,omitempty"`
-	Badge *int        `json:"badge,omitempty"`
-	Sound string      `json:"sound,omitempty"`
+	Alert            interface{} `json:"alert,omitempty"`
+	Badge            *int        `json:"badge,omitempty"`
+	Sound            string      `json:"sound,omitempty"`
+	ContentAvailable *int        `json:"content-available,omitempty"`
+	Category         string      `json:"category,omitempty"`
 }
 
 // Constructor.
@@ -66,7 +68,7 @@ func NewPushNotification(isIOS7OrEarlier bool) (pn *PushNotification) {
 	pn.Identifier = atomic.AddUint32(&lastUsedNotificationIdentifier, 1)
 	pn.maxPayloadSize = MAX_PAYLOAD_SIZE_BYTES
 	if isIOS7OrEarlier {
-		pn.maxPayloadSize = MAX_PAYLOAD_SIZE_UNTIL_IOS7_BYTES
+		pn.maxPayloadSize = MAX_PAYLOAD_SIZE_BEFORE_IOS8_BYTES
 	}
 	return
 }
