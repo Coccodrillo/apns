@@ -78,14 +78,13 @@ func (client *Client) ListenForFeedback() (err error) {
 	deviceToken := make([]byte, 32, 32)
 
 	for {
-		en, err := tlsConn.Read(buffer)
-		/*
+		//en, err := tlsConn.Read(buffer)
+		_, err := tlsConn.Read(buffer)
 			if err != nil {
-				log.Println(err)
+				//log.Println(err)
 				ShutdownChannel <- true
 				break
 			}
-		*/
 		time.Sleep(time.Second)
 
 		resp := NewFeedbackResponse()
