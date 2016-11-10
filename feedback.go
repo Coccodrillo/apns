@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"log"
 	"net"
 	"strings"
 	"time"
@@ -65,11 +66,12 @@ func (client *Client) ListenForFeedback() (err error) {
 		return err
 	}
 	defer conn.Close()
-	conn.SetReadDeadline(time.Now().Add(FeedbackTimeoutSeconds * time.Second))
+	//conn.SetReadDeadline(time.Now().Add(FeedbackTimeoutSeconds * time.Second))
 
 	tlsConn := tls.Client(conn, conf)
 	err = tlsConn.Handshake()
 	if err != nil {
+		//todo problem outside
 		return err
 	}
 
@@ -79,13 +81,15 @@ func (client *Client) ListenForFeedback() (err error) {
 
 	for {
 		//en, err := tlsConn.Read(buffer)
+		log.Println(time.Now())
 		_, err := tlsConn.Read(buffer)
-			if err != nil {
-				//log.Println(err)
-				ShutdownChannel <- true
-				break
-			}
-		time.Sleep(time.Second)
+		if err != nil {
+			log.Println(time.Now())
+			log.Println("read error")
+			log.Println(err)
+			ShutdownChannel <- true
+			break
+		}
 
 		resp := NewFeedbackResponse()
 
