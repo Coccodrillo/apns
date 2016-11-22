@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"log"
 	"net"
 	"strings"
 	"time"
@@ -65,11 +66,12 @@ func (client *Client) ListenForFeedback() (err error) {
 		return err
 	}
 	defer conn.Close()
-	conn.SetReadDeadline(time.Now().Add(FeedbackTimeoutSeconds * time.Second))
+	//conn.SetReadDeadline(time.Now().Add(FeedbackTimeoutSeconds * time.Second))
 
 	tlsConn := tls.Client(conn, conf)
 	err = tlsConn.Handshake()
 	if err != nil {
+		//todo problem outside
 		return err
 	}
 
@@ -78,8 +80,13 @@ func (client *Client) ListenForFeedback() (err error) {
 	deviceToken := make([]byte, 32, 32)
 
 	for {
+		//en, err := tlsConn.Read(buffer)
+		log.Println(time.Now())
 		_, err := tlsConn.Read(buffer)
 		if err != nil {
+			log.Println(time.Now())
+			log.Println("read error")
+			log.Println(err)
 			ShutdownChannel <- true
 			break
 		}
@@ -91,7 +98,8 @@ func (client *Client) ListenForFeedback() (err error) {
 		binary.Read(r, binary.BigEndian, &tokenLength)
 		binary.Read(r, binary.BigEndian, &deviceToken)
 		if tokenLength != 32 {
-			return errors.New("token length should be equal to 32, but isn't")
+			errors.New("token length should be equal to 32, but isn't")
+			//return errors.New("token length should be equal to 32, but isn't")
 		}
 		resp.DeviceToken = hex.EncodeToString(deviceToken)
 
