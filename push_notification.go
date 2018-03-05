@@ -73,7 +73,7 @@ func NewPushNotification(isIOS7OrEarlier bool) (pn *PushNotification) {
 	return
 }
 
-func (this *PushNotification) AddPayload(p *Payload) {
+func (this *PushNotification) AddPayload(p interface{}) {
 	this.Set("aps", p)
 }
 
